@@ -23,16 +23,34 @@ app.post("/api/smart-search", async (req: express.Request, res: express.Response
       return res.status(400).json({ error: "Recherche invalide" });
     }
 
-    // Check if API key is configured
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is not configured");
-      res.setHeader('Content-Type', 'application/json');
-      return res.status(500).json({ 
-        error: "Service IA temporairement indisponible. Veuillez réessayer plus tard." 
-      });
-    }
-
     const cleanQuery = query.trim().toUpperCase();
+
+    // Demo mode if no API key is configured
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn("[AI Search] No API key - Using demo mode");
+      const demoData = {
+        reference: cleanQuery,
+        fullTitle: `Composant ${cleanQuery} (Mode Démo)`,
+        category: "Circuits Intégrés (IC)",
+        summary: `Ceci est une réponse de démonstration pour ${cleanQuery}. Configurez GEMINI_API_KEY pour obtenir des informations réelles.`,
+        packageType: "DIP-8",
+        pinCount: "8 broches",
+        keySpecs: [
+          "Tension d'alimentation: 5V",
+          "Courant max: 200mA",
+          "Fréquence: 1MHz",
+          "Température: 0°C à 70°C"
+        ],
+        typicalApplications: [
+          "Timing et temporisation",
+          "Générateur d'impulsions",
+          "Oscillateur astable",
+          "Circuit monostable"
+        ]
+      };
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(200).send(JSON.stringify({ success: true, data: demoData }));
+    }
 
     const prompt = `Vous êtes l'expert système du catalogue mondial de composants électroniques pour ELECTRO MEN.
 Analyse la référence ou le nom de composant électronique suivant : "${cleanQuery}".
@@ -49,57 +67,74 @@ Donne une réponse structurée en JSON contenant :
 
     console.log(`[AI Search] Processing query: ${cleanQuery}`);
     
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            reference: { type: Type.STRING },
-            fullTitle: { type: Type.STRING },
-            category: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            packageType: { type: Type.STRING },
-            pinCount: { type: Type.STRING },
-            keySpecs: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              reference: { type: Type.STRING },
+              fullTitle: { type: Type.STRING },
+              category: { type: Type.STRING },
+              summary: { type: Type.STRING },
+              packageType: { type: Type.STRING },
+              pinCount: { type: Type.STRING },
+              keySpecs: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
+              typicalApplications: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
             },
-            typicalApplications: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-            },
+            required: [
+              "reference",
+              "fullTitle",
+              "category",
+              "summary",
+              "packageType",
+              "pinCount",
+              "keySpecs",
+              "typicalApplications",
+            ],
           },
-          required: [
-            "reference",
-            "fullTitle",
-            "category",
-            "summary",
-            "packageType",
-            "pinCount",
-            "keySpecs",
-            "typicalApplications",
-          ],
         },
-      },
-    });
+      });
 
-    const resultText = response.text;
-    console.log(`[AI Search] Gemini response received:`, resultText ? 'YES' : 'NO');
-    
-    if (!resultText) {
-      console.error("[AI Search] Empty response from Gemini");
-      throw new Error("Pas de réponse générée par Gemini");
+      const resultText = response.text;
+      console.log(`[AI Search] Gemini response received:`, resultText ? 'YES' : 'NO');
+      
+      if (!resultText) {
+        console.error("[AI Search] Empty response from Gemini");
+        throw new Error("Pas de réponse générée par Gemini");
+      }
+
+      const aiData = JSON.parse(resultText);
+      console.log(`[AI Search] Successfully parsed result for: ${aiData.reference}`);
+      
+      // Ensure proper JSON response with correct content-type
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(200).send(JSON.stringify({ success: true, data: aiData }));
+    } catch (error: any) {
+      console.error("[AI Search] Gemini API error:", error);
+      // Fallback to demo data on API error
+      const fallbackData = {
+        reference: cleanQuery,
+        fullTitle: `${cleanQuery} (Erreur API - Mode Démo)`,
+        category: "Non déterminé",
+        summary: "Impossible de contacter le service IA. Vérifiez la clé API Gemini.",
+        packageType: "N/A",
+        pinCount: "N/A",
+        keySpecs: ["Erreur de connexion à l'API"],
+        typicalApplications: ["Vérifiez GEMINI_API_KEY"]
+      };
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(200).send(JSON.stringify({ success: true, data: fallbackData }));
     }
-
-    const aiData = JSON.parse(resultText);
-    console.log(`[AI Search] Successfully parsed result for: ${aiData.reference}`);
-    
-    // Ensure proper JSON response with correct content-type
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(200).send(JSON.stringify({ success: true, data: aiData }));
   } catch (error: any) {
     console.error("[AI Search] Full error:", error);
     const errorResponse = {
