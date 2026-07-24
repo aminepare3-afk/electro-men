@@ -1,20 +1,41 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+
+# ELECTRO MEN - Composants Électroniques & Sourcing
+
+Application de catalogue et sourcing de composants électroniques avec intelligence artificielle
+
 </div>
-
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/a6838d00-fddf-4539-96f9-9c0707969f5b
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+   ```bash
+   npm install
+   ```
+
+2. Configure your API key:
+   - Copy `.env.example` to `.env.local`
+   - Add your Gemini API key or Groq API key
+
 3. Run the app:
-   `npm run dev`
+   ```bash
+   npm run dev
+   ```
+
+## Deploy on Vercel
+
+1. Push your code to GitHub
+2. Import your repository on [Vercel](https://vercel.com)
+3. Add the `GEMINI_API_KEY` environment variable in Vercel settings
+4. Deploy!
+
+## Features
+
+- 🔍 Recherche intelligente par nom et référence MPN
+- 🤖 Identification automatique des composants via IA
+- 📦 Catalogue de composants électroniques
+- 🛒 Panier d'achat
+- 💬 Commande sur-mesure via WhatsApp
+- ⚡ Administration complète des produits
