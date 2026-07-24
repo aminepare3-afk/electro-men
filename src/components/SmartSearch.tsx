@@ -56,7 +56,8 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
         console.error('Non-JSON response:', text);
-        throw new Error('Le serveur a retourné une réponse invalide. Veuillez réessayer.');
+        // Show more helpful error message
+        throw new Error(`Erreur serveur (${res.status}): Le service IA est temporairement indisponible. Vérifiez la configuration Vercel.`);
       }
 
       const data = await res.json();
