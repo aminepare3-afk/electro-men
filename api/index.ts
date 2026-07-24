@@ -132,4 +132,4 @@ app.get("/api/health", (req: express.Request, res: express.Response) => {
   res.json({ status: "ok", app: "ELECTRO MEN Backend" });
 });
 
-export default app;
+module.exports = app;
