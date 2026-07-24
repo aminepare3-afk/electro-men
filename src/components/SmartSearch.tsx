@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, Sparkles, Cpu, Layers, ExternalLink, Send, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { Product, SmartSearchReferenceInfo } from '../types';
 
@@ -24,6 +24,7 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<SmartSearchReferenceInfo['aiLookup'] | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if query matches local stock
   const cleanQuery = searchQuery.trim().toLowerCase();
@@ -34,12 +35,28 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
       p.category.toLowerCase().includes(cleanQuery)
   );
 
-  // Auto-trigger AI lookup when query is long enough and no local matches
+  // Auto-trigger AI lookup with debounce when query is long enough and no local matches
   React.useEffect(() => {
-    if (searchQuery.trim().length >= 3 && matchedInStock.length === 0 && !aiResult && !aiLoading) {
-      handleTriggerAiLookup();
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-  }, [searchQuery]);
+
+    // Only trigger if query is long enough, no local matches, and not already loading
+    if (searchQuery.trim().length >= 5 && matchedInStock.length === 0 && !aiResult && !aiLoading) {
+      // Wait 1.5 seconds after user stops typing before triggering AI search
+      debounceTimerRef.current = setTimeout(() => {
+        handleTriggerAiLookup();
+      }, 1500);
+    }
+
+    // Cleanup timer on unmount
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchQuery, matchedInStock.length, aiResult, aiLoading]);
 
   const handleTriggerAiLookup = async () => {
     if (!searchQuery || searchQuery.trim().length < 2) return;
