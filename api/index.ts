@@ -47,6 +47,8 @@ Donne une réponse structurée en JSON contenant :
 - typicalApplications: 3 à 4 exemples concrets d'utilisation
 `;
 
+    console.log(`[AI Search] Processing query: ${cleanQuery}`);
+    
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
       contents: prompt,
@@ -85,17 +87,21 @@ Donne une réponse structurée en JSON contenant :
     });
 
     const resultText = response.text;
+    console.log(`[AI Search] Gemini response received:`, resultText ? 'YES' : 'NO');
+    
     if (!resultText) {
+      console.error("[AI Search] Empty response from Gemini");
       throw new Error("Pas de réponse générée par Gemini");
     }
 
     const aiData = JSON.parse(resultText);
+    console.log(`[AI Search] Successfully parsed result for: ${aiData.reference}`);
     
     // Ensure proper JSON response with correct content-type
     res.setHeader('Content-Type', 'application/json');
     return res.status(200).send(JSON.stringify({ success: true, data: aiData }));
   } catch (error: any) {
-    console.error("Erreur Smart Search Gemini:", error);
+    console.error("[AI Search] Full error:", error);
     const errorResponse = {
       error: "Impossible d'identifier la référence automatiquement.",
       details: error.message,
