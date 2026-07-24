@@ -15,5 +15,8 @@ export default defineConfig(() => {
       hmr: true,
       watch: {},
     },
+    build: {
+      chunkSizeWarningLimit: 1000,
+    },
   };
 });
