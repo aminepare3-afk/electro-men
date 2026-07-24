@@ -35,28 +35,8 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
       p.category.toLowerCase().includes(cleanQuery)
   );
 
-  // Auto-trigger AI lookup with debounce when query is long enough and no local matches
-  React.useEffect(() => {
-    // Clear previous timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // Only trigger if query is long enough, no local matches, and not already loading
-    if (searchQuery.trim().length >= 5 && matchedInStock.length === 0 && !aiResult && !aiLoading) {
-      // Wait 1.5 seconds after user stops typing before triggering AI search
-      debounceTimerRef.current = setTimeout(() => {
-        handleTriggerAiLookup();
-      }, 1500);
-    }
-
-    // Cleanup timer on unmount
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, [searchQuery, matchedInStock.length, aiResult, aiLoading]);
+  // Note: Auto-trigger disabled to prevent errors while typing
+  // Users must click the "Identifier la référence avec AI" button manually
 
   const handleTriggerAiLookup = async () => {
     if (!searchQuery || searchQuery.trim().length < 2) return;
