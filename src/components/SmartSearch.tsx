@@ -34,6 +34,13 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
       p.category.toLowerCase().includes(cleanQuery)
   );
 
+  // Auto-trigger AI lookup when query is long enough and no local matches
+  React.useEffect(() => {
+    if (searchQuery.trim().length >= 3 && matchedInStock.length === 0 && !aiResult && !aiLoading) {
+      handleTriggerAiLookup();
+    }
+  }, [searchQuery]);
+
   const handleTriggerAiLookup = async () => {
     if (!searchQuery || searchQuery.trim().length < 2) return;
     setAiLoading(true);
