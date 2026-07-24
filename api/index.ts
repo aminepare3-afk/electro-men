@@ -1,17 +1,12 @@
 import express from "express";
-import { GoogleGenAI, Type } from "@google/genai";
+import Groq from "groq-sdk";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
 
-// Initialize Gemini Client server-side
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || "",
-  httpOptions: {
-    headers: {
-      "User-Agent": "ELECTRO-MEN/1.0",
-    },
-  },
+// Initialize Groq Client server-side
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || "",
 });
 
 // Endpoint for Smart Component Reference AI Lookup
@@ -26,13 +21,13 @@ app.post("/api/smart-search", async (req: express.Request, res: express.Response
     const cleanQuery = query.trim().toUpperCase();
 
     // Demo mode if no API key is configured
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.GROQ_API_KEY) {
       console.warn("[AI Search] No API key - Using demo mode");
       const demoData = {
         reference: cleanQuery,
         fullTitle: `Composant ${cleanQuery} (Mode Démo)`,
         category: "Circuits Intégrés (IC)",
-        summary: `Ceci est une réponse de démonstration pour ${cleanQuery}. Configurez GEMINI_API_KEY pour obtenir des informations réelles.`,
+        summary: `Ceci est une réponse de démonstration pour ${cleanQuery}. Configurez GROQ_API_KEY pour obtenir des informations réelles.`,
         packageType: "DIP-8",
         pinCount: "8 broches",
         keySpecs: [
@@ -68,69 +63,54 @@ Donne une réponse structurée en JSON contenant :
     console.log(`[AI Search] Processing query: ${cleanQuery}`);
     
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              reference: { type: Type.STRING },
-              fullTitle: { type: Type.STRING },
-              category: { type: Type.STRING },
-              summary: { type: Type.STRING },
-              packageType: { type: Type.STRING },
-              pinCount: { type: Type.STRING },
-              keySpecs: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-              typicalApplications: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-              },
-            },
-            required: [
-              "reference",
-              "fullTitle",
-              "category",
-              "summary",
-              "packageType",
-              "pinCount",
-              "keySpecs",
-              "typicalApplications",
-            ],
+      const response = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "Tu es un expert en composants électroniques. Tu réponds UNIQUEMENT en JSON valide."
           },
-        },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1024,
       });
 
-      const resultText = response.text;
-      console.log(`[AI Search] Gemini response received:`, resultText ? 'YES' : 'NO');
+      const resultText = response.choices[0]?.message?.content;
+      console.log(`[AI Search] Groq response received:`, resultText ? 'YES' : 'NO');
       
       if (!resultText) {
-        console.error("[AI Search] Empty response from Gemini");
-        throw new Error("Pas de réponse générée par Gemini");
+        console.error("[AI Search] Empty response from Groq");
+        throw new Error("Pas de réponse générée par Groq");
       }
 
-      const aiData = JSON.parse(resultText);
+      // Extract JSON from response (in case there's extra text)
+      const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("Format de réponse invalide");
+      }
+
+      const aiData = JSON.parse(jsonMatch[0]);
       console.log(`[AI Search] Successfully parsed result for: ${aiData.reference}`);
       
       // Ensure proper JSON response with correct content-type
       res.setHeader('Content-Type', 'application/json');
       return res.status(200).send(JSON.stringify({ success: true, data: aiData }));
     } catch (error: any) {
-      console.error("[AI Search] Gemini API error:", error);
+      console.error("[AI Search] Groq API error:", error);
       // Fallback to demo data on API error
       const fallbackData = {
         reference: cleanQuery,
         fullTitle: `${cleanQuery} (Erreur API - Mode Démo)`,
         category: "Non déterminé",
-        summary: "Impossible de contacter le service IA. Vérifiez la clé API Gemini.",
+        summary: "Impossible de contacter le service IA. Vérifiez la clé API Groq.",
         packageType: "N/A",
         pinCount: "N/A",
         keySpecs: ["Erreur de connexion à l'API"],
-        typicalApplications: ["Vérifiez GEMINI_API_KEY"]
+        typicalApplications: ["Vérifiez GROQ_API_KEY"]
       };
       res.setHeader('Content-Type', 'application/json');
       return res.status(200).send(JSON.stringify({ success: true, data: fallbackData }));
