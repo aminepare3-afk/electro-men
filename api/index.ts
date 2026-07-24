@@ -15,11 +15,21 @@ const ai = new GoogleGenAI({
 });
 
 // Endpoint for Smart Component Reference AI Lookup
-app.post("/api/smart-search", async (req, res) => {
+app.post("/api/smart-search", async (req: express.Request, res: express.Response) => {
   try {
     const { query } = req.body;
     if (!query || typeof query !== "string" || query.trim().length < 2) {
+      res.setHeader('Content-Type', 'application/json');
       return res.status(400).json({ error: "Recherche invalide" });
+    }
+
+    // Check if API key is configured
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not configured");
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(500).json({ 
+        error: "Service IA temporairement indisponible. Veuillez réessayer plus tard." 
+      });
     }
 
     const cleanQuery = query.trim().toUpperCase();
@@ -80,18 +90,24 @@ Donne une réponse structurée en JSON contenant :
     }
 
     const aiData = JSON.parse(resultText);
-    return res.json({ success: true, data: aiData });
+    
+    // Ensure proper JSON response with correct content-type
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).send(JSON.stringify({ success: true, data: aiData }));
   } catch (error: any) {
     console.error("Erreur Smart Search Gemini:", error);
-    return res.status(500).json({
+    const errorResponse = {
       error: "Impossible d'identifier la référence automatiquement.",
       details: error.message,
-    });
+    };
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(500).send(JSON.stringify(errorResponse));
   }
 });
 
 // Health API
-app.get("/api/health", (req, res) => {
+app.get("/api/health", (req: express.Request, res: express.Response) => {
+  res.setHeader('Content-Type', 'application/json');
   res.json({ status: "ok", app: "ELECTRO MEN Backend" });
 });
 
