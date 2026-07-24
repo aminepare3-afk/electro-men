@@ -17,7 +17,7 @@ Application de catalogue et sourcing de composants électroniques avec intellige
 
 2. Configure your API key:
    - Copy `.env.example` to `.env.local`
-   - Add your Gemini API key or Groq API key
+   - Add your Groq API key from https://console.groq.com/keys
 
 3. Run the app:
    ```bash
@@ -28,7 +28,7 @@ Application de catalogue et sourcing de composants électroniques avec intellige
 
 1. Push your code to GitHub
 2. Import your repository on [Vercel](https://vercel.com)
-3. Add the `GEMINI_API_KEY` environment variable in Vercel settings
+3. Add the `GROQ_API_KEY` environment variable in Vercel settings
 4. Deploy!
 
 ## Features
