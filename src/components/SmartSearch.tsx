@@ -54,6 +54,14 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
         body: JSON.stringify({ query: searchQuery }),
       });
 
+      // Check if response is JSON before parsing
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('Non-JSON response:', text);
+        throw new Error('Le serveur a retourné une réponse invalide. Veuillez réessayer.');
+      }
+
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Impossible d'identifier la référence.");
@@ -61,7 +69,13 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
 
       setAiResult(data.data);
     } catch (err: any) {
-      setAiError(err.message || 'Erreur de recherche AI.');
+      console.error('AI Search error:', err);
+      // Handle JSON parsing errors specifically
+      if (err.message.includes('JSON') || err.message.includes('json')) {
+        setAiError('Erreur de communication avec le serveur. Veuillez réessayer.');
+      } else {
+        setAiError(err.message || 'Erreur de recherche AI.');
+      }
     } finally {
       setAiLoading(false);
     }
