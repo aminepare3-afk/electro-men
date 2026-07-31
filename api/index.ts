@@ -6,7 +6,7 @@ app.use(express.json({ limit: "50mb" }));
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Electronok";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Electron";
 
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
