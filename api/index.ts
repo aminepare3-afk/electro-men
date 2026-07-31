@@ -33,6 +33,15 @@ function requireDb(res: express.Response): boolean {
   return true;
 }
 
+// Admin login — verifies the password server-side only (never shipped to the client bundle)
+app.post("/api/admin-login", (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (req.body?.password === ADMIN_PASSWORD) {
+    return res.status(200).json({ success: true });
+  }
+  return res.status(401).json({ success: false });
+});
+
 // GET all products (public read)
 app.get("/api/products", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");

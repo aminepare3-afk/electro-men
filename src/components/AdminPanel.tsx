@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest } from '../types';
 import { CATEGORIES } from '../data/initialData';
-import { ADMIN_PASSWORD } from '../adminConfig';
 
 interface AdminPanelProps {
   products: Product[];
-  onAddProduct: (product: Product) => void;
-  onUpdateProduct: (product: Product) => void;
-  onDeleteProduct: (productId: string) => void;
-  onClearAllProducts: () => void;
+  onAddProduct: (product: Product, adminPassword: string) => void;
+  onUpdateProduct: (product: Product, adminPassword: string) => void;
+  onDeleteProduct: (productId: string, adminPassword: string) => void;
+  onClearAllProducts: (adminPassword: string) => void;
   onClose?: () => void;
 }
 
@@ -24,6 +23,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'add'>('products');
 
   // New Product Form State
@@ -41,13 +41,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [specsList, setSpecsList] = useState<Record<string, string>>({});
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      setPasswordError(false);
-    } else {
+    setLoginLoading(true);
+    try {
+      const res = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsAuthenticated(true);
+        setPasswordError(false);
+      } else {
+        setPasswordError(true);
+      }
+    } catch (err) {
       setPasswordError(true);
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -99,9 +112,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     };
 
     if (editingProductId) {
-      onUpdateProduct(productObj);
+      onUpdateProduct(productObj, passwordInput);
     } else {
-      onAddProduct(productObj);
+      onAddProduct(productObj, passwordInput);
     }
 
     // Reset Form
@@ -188,15 +201,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm font-mono uppercase shadow-md transition-all"
+            disabled={loginLoading}
+            className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm font-mono uppercase shadow-md transition-all disabled:opacity-60"
           >
-            Se Connecter à la Gestion
+            {loginLoading ? 'Vérification...' : 'Se Connecter à la Gestion'}
           </button>
         </form>
-
-        <p className="text-[11px] font-mono text-slate-500">
-          Mot de passe configuré : <code className="text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Electronok</code>
-        </p>
       </div>
     );
   }
@@ -212,7 +222,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
           <div>
             <span className="text-xs font-mono text-emerald-700 font-bold block uppercase">
-              GESTIONNAIRE ACCÈS SÉCURISÉ (MOT DE PASSE: Electronok)
+              GESTIONNAIRE ACCÈS SÉCURISÉ
             </span>
             <h2 className="text-xl font-bold font-mono text-slate-900 uppercase">
               Panneau d'Administration ELECTRO MEN
@@ -225,7 +235,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <button
             onClick={() => {
               if (window.confirm('Voulez-vous VRAIMENT supprimer TOUS les produits du catalogue ?')) {
-                onClearAllProducts();
+                onClearAllProducts(passwordInput);
               }
             }}
             className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-mono flex items-center gap-1.5 transition-colors font-medium"
@@ -339,7 +349,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => onDeleteProduct(p.id)}
+                          onClick={() => onDeleteProduct(p.id, passwordInput)}
                           className="p-1.5 rounded bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
                           title="Supprimer"
                         >

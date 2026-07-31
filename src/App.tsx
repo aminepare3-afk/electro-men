@@ -11,7 +11,6 @@ import { AdminPanel } from './components/AdminPanel';
 import { Product, CartItem } from './types';
 import { INITIAL_PRODUCTS, CATEGORIES, DEMO_SAMPLE_PRODUCTS } from './data/initialData';
 import { Logo } from './components/Logo';
-import { ADMIN_PASSWORD } from './adminConfig';
 import { Send, Phone, MapPin, Globe, ShieldCheck, Zap, Cpu, Sparkles, Plus, ArrowLeft } from 'lucide-react';
 
 export default function App() {
@@ -87,18 +86,12 @@ export default function App() {
     });
   };
 
-  // Detect URL /admin or hash #admin on mount and route changes
+  // Detect exact /admin path or #admin hash on mount and route changes
   useEffect(() => {
     const checkAdminRoute = () => {
-      const path = window.location.pathname.toLowerCase();
+      const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const hash = window.location.hash.toLowerCase();
-      const search = window.location.search.toLowerCase();
-      if (
-        path.includes('/admin') ||
-        path === 'admin' ||
-        hash.includes('admin') ||
-        search.includes('admin')
-      ) {
+      if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         setIsAdminOpen(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -192,12 +185,12 @@ export default function App() {
     fetchProducts();
   }, []);
 
-  const handleAddProduct = async (newProduct: Product) => {
+  const handleAddProduct = async (newProduct: Product, adminPassword: string) => {
     try {
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: newProduct, adminPassword: ADMIN_PASSWORD }),
+        body: JSON.stringify({ product: newProduct, adminPassword }),
       });
       const json = await res.json();
       if (json.success) {
@@ -210,12 +203,12 @@ export default function App() {
     }
   };
 
-  const handleUpdateProduct = async (updatedProduct: Product) => {
+  const handleUpdateProduct = async (updatedProduct: Product, adminPassword: string) => {
     try {
       const res = await fetch('/api/products', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: updatedProduct, adminPassword: ADMIN_PASSWORD }),
+        body: JSON.stringify({ product: updatedProduct, adminPassword }),
       });
       const json = await res.json();
       if (json.success) {
@@ -228,12 +221,12 @@ export default function App() {
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
+  const handleDeleteProduct = async (productId: string, adminPassword: string) => {
     try {
       const res = await fetch('/api/products', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: productId, adminPassword: ADMIN_PASSWORD }),
+        body: JSON.stringify({ id: productId, adminPassword }),
       });
       const json = await res.json();
       if (json.success) {
@@ -246,12 +239,12 @@ export default function App() {
     }
   };
 
-  const handleClearAllProducts = async () => {
+  const handleClearAllProducts = async (adminPassword: string) => {
     try {
       const res = await fetch('/api/products', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clearAll: true, adminPassword: ADMIN_PASSWORD }),
+        body: JSON.stringify({ clearAll: true, adminPassword }),
       });
       const json = await res.json();
       if (json.success) {
