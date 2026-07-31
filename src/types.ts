@@ -50,6 +50,7 @@ export interface SmartSearchReferenceInfo {
   foundInCatalog: boolean;
   matchedProduct?: Product;
   aiLookup?: {
+    reference: string;
     fullTitle: string;
     category: string;
     summary: string;

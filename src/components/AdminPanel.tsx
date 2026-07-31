@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, Database, Globe, RefreshCw, AlertCircle, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
+import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest } from '../types';
 import { CATEGORIES } from '../data/initialData';
-import { SupabaseGuide } from './SupabaseGuide';
 
 interface AdminPanelProps {
   products: Product[];
@@ -24,7 +23,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
-  const [activeTab, setActiveTab] = useState<'products' | 'add' | 'supabase'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'add'>('products');
 
   // New Product Form State
   const [newTitle, setNewTitle] = useState('');
@@ -254,7 +253,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-3">
         <button
           onClick={() => {
             resetForm();
@@ -279,18 +278,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         >
           <Plus className="w-4 h-4" />
           <span>{editingProductId ? 'Modifier Composant' : 'Ajouter Nouveau Composant'}</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('supabase')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'supabase'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>Export Supabase & Vercel / GitHub</span>
         </button>
       </div>
 
@@ -515,25 +502,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {/* Custom Specs Pair */}
           <div className="space-y-2 pt-2 border-t border-slate-200">
             <label className="block text-xs font-mono uppercase text-amber-800 font-bold">Spécifications Électriques (Key / Value)</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 placeholder="Propriété (ex: Tension)"
                 value={specKey}
                 onChange={(e) => setSpecKey(e.target.value)}
-                className="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900"
+                className="w-full sm:w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900"
               />
               <input
                 type="text"
                 placeholder="Valeur (ex: 3.3V - 5V)"
                 value={specValue}
                 onChange={(e) => setSpecValue(e.target.value)}
-                className="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900"
+                className="w-full sm:w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900"
               />
               <button
                 type="button"
                 onClick={handleAddSpec}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-mono rounded-lg font-bold"
+                className="w-full sm:w-auto px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-mono rounded-lg font-bold shrink-0"
               >
                 + Ajouter
               </button>
@@ -583,9 +570,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </form>
       )}
-
-      {/* Tab Content 3: Supabase Guide */}
-      {activeTab === 'supabase' && <SupabaseGuide />}
 
     </div>
   );

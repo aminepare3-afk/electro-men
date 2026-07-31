@@ -5,11 +5,11 @@
   "rewrites": [
     {
       "source": "/api/smart-search",
-      "destination": "/api/index.js"
+      "destination": "/api/index"
     },
     {
       "source": "/api/health",
-      "destination": "/api/index.js"
+      "destination": "/api/index"
     },
     {
       "source": "/(.*)",

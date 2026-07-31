@@ -50,7 +50,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
             {/* Image */}
             <div className="md:col-span-5 relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200 h-64">
@@ -69,7 +69,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             {/* Info & Price */}
             <div className="md:col-span-7 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-2xl font-black text-amber-700 font-mono">
                   {product.priceFcfa.toLocaleString('fr-FR')} <span className="text-sm font-normal text-slate-600">FCFA / unité</span>
                 </span>
@@ -96,9 +96,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               )}
 
               {/* Quantity selector */}
-              <div className="pt-3 border-t border-slate-200 flex items-center gap-4">
+              <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center gap-3 sm:gap-4">
                 <span className="text-xs font-mono text-slate-500 uppercase">QUANTITÉ :</span>
-                <div className="flex items-center border border-slate-300 rounded-lg bg-slate-50">
+                <div className="flex items-center border border-slate-300 rounded-lg bg-slate-50 shrink-0">
                   <button
                     onClick={() => setQty(Math.max(1, qty - 1))}
                     className="px-3 py-1.5 text-slate-700 hover:text-slate-900 font-mono font-bold"

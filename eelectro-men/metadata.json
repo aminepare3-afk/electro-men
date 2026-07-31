@@ -1,6 +1,0 @@
-{
-  "name": "ELECTRO MEN",
-  "description": "Site e-commerce haut de gamme de composants électroniques avec motion design 3D, recherche intelligente par référence/datasheet, commandes sur-mesure via WhatsApp (+226 67 31 46 05) et espace administration sécurisé.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
