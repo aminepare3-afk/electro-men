@@ -157,4 +157,4 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ success: false, error: err?.message || "Erreur serveur inattendue." });
 });
 
-module.exports = app;
+export default app;
