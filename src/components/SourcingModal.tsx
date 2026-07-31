@@ -46,9 +46,9 @@ export const SourcingModal: React.FC<SourcingModalProps> = ({
     e.preventDefault();
     if (!componentNameOrMpn || !phoneWhatsApp) return;
 
-    // Create formatted WhatsApp message targeting +226 67 31 46 05
+    // Create formatted WhatsApp message targeting +226 65 48 47 38
     const msg = encodeURIComponent(
-      `Bonjour ELECTRO MEN (+226 67 31 46 05),\n\n*DEMANDE DE COMPOSANT SUR-MESURE*\n\n` +
+      `Bonjour ELECTRO MEN (+226 65 48 47 38),\n\n*DEMANDE DE COMPOSANT SUR-MESURE*\n\n` +
         `👤 Client : ${customerName || 'Client ELECTRO MEN'}\n` +
         `📱 WhatsApp : ${phoneWhatsApp}\n` +
         `⚡ Composant/MPN : ${componentNameOrMpn}\n` +
@@ -58,7 +58,7 @@ export const SourcingModal: React.FC<SourcingModalProps> = ({
         `Merci de vérifier la disponibilité et de me transmettre le devis !`
     );
 
-    const whatsappUrl = `https://wa.me/22667314605?text=${msg}`;
+    const whatsappUrl = `https://wa.me/22665484738?text=${msg}`;
     setSubmitted(true);
 
     setTimeout(() => {
@@ -101,7 +101,7 @@ export const SourcingModal: React.FC<SourcingModalProps> = ({
             </div>
             <h3 className="text-xl font-bold text-slate-900">Demande Transmise par WhatsApp !</h3>
             <p className="text-slate-600 text-sm max-w-md mx-auto">
-              Votre demande pour <strong className="text-amber-800">{componentNameOrMpn}</strong> a été formatée et redirigée vers WhatsApp <strong className="text-emerald-700">+226 67 31 46 05</strong>.
+              Votre demande pour <strong className="text-amber-800">{componentNameOrMpn}</strong> a été formatée et redirigée vers WhatsApp <strong className="text-emerald-700">+226 65 48 47 38</strong>.
             </p>
             <button
               onClick={() => {
@@ -235,7 +235,7 @@ export const SourcingModal: React.FC<SourcingModalProps> = ({
                 className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm font-mono uppercase flex items-center justify-center gap-2 shadow-sm transition-all"
               >
                 <Send className="w-5 h-5" />
-                <span>Envoyer la Demande sur WhatsApp (+226 67 31 46 05)</span>
+                <span>Envoyer la Demande sur WhatsApp (+226 65 48 47 38)</span>
               </button>
             </div>
           </form>

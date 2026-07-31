@@ -69,13 +69,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* WhatsApp Direct */}
           <a
-            href="https://wa.me/22667314605?text=Bonjour%20ELECTRO%20MEN%2C%20je%20souhaite%20une%20information."
+            href="https://wa.me/22665484738?text=Bonjour%20ELECTRO%20MEN%2C%20je%20souhaite%20une%20information."
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-mono transition-colors font-medium"
           >
             <Phone className="w-3.5 h-3.5 text-emerald-600" />
-            <span>+226 67 31 46 05</span>
+            <span>+226 65 48 47 38</span>
           </a>
 
           {/* Cart Button */}

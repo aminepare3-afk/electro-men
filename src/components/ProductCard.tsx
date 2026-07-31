@@ -51,9 +51,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // Format WhatsApp direct link for this specific item
   const formattedMsg = encodeURIComponent(
-    `Bonjour ELECTRO MEN (+226 67 31 46 05), je souhaite commander le composant suivant :\n\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Prix : ${product.priceFcfa.toLocaleString('fr-FR')} FCFA\n- Disponibilité : ${product.status === 'IN_STOCK' ? 'En Stock' : 'Sur Commande'}\n\nMerci de me confirmer la livraison !`
+    `Bonjour ELECTRO MEN (+226 65 48 47 38), je souhaite commander le composant suivant :\n\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Prix : ${product.priceFcfa.toLocaleString('fr-FR')} FCFA\n- Disponibilité : ${product.status === 'IN_STOCK' ? 'En Stock' : 'Sur Commande'}\n\nMerci de me confirmer la livraison !`
   );
-  const whatsappUrl = `https://wa.me/22667314605?text=${formattedMsg}`;
+  const whatsappUrl = `https://wa.me/22665484738?text=${formattedMsg}`;
 
   const getStatusBadge = () => {
     switch (product.status) {

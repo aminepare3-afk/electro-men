@@ -18,9 +18,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   if (!product) return null;
 
   const formattedMsg = encodeURIComponent(
-    `Bonjour ELECTRO MEN (+226 67 31 46 05),\nJe souhaite commander :\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Quantité : ${qty}\n- Total estimé : ${(product.priceFcfa * qty).toLocaleString('fr-FR')} FCFA\n\nMerci de me donner les instructions de livraison au Burkina Faso.`
+    `Bonjour ELECTRO MEN (+226 65 48 47 38),\nJe souhaite commander :\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Quantité : ${qty}\n- Total estimé : ${(product.priceFcfa * qty).toLocaleString('fr-FR')} FCFA\n\nMerci de me donner les instructions de livraison au Burkina Faso.`
   );
-  const whatsappUrl = `https://wa.me/22667314605?text=${formattedMsg}`;
+  const whatsappUrl = `https://wa.me/22665484738?text=${formattedMsg}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">

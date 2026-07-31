@@ -113,7 +113,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       .join('\n\n');
 
     const msg = encodeURIComponent(
-      `Bonjour ELECTRO MEN (+226 67 31 46 05),\nJe souhaite passer la commande suivante :\n\n` +
+      `Bonjour ELECTRO MEN (+226 65 48 47 38),\nJe souhaite passer la commande suivante :\n\n` +
         `📦 *PANIER COMMANDES COMPOSANTS* :\n${itemsList}\n\n` +
         `💵 *TOTAL COMMANDE* : *${totalFcfa.toLocaleString('fr-FR')} FCFA*\n\n` +
         `📍 *LIVRAISON BURKINA FASO* :\n` +
@@ -124,7 +124,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         `Merci de me contacter pour valider le paiement (Orange Money/Moov) et lancer la livraison !`
     );
 
-    window.open(`https://wa.me/22667314605?text=${msg}`, '_blank');
+    window.open(`https://wa.me/22665484738?text=${msg}`, '_blank');
   };
 
   // Quick Reorder functionality
@@ -232,7 +232,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {/* TAB 1: CURRENT CART */}
           {activeTab === 'cart' && (
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
               {cart.length === 0 ? (
                 <div className="h-64 flex flex-col items-center justify-center text-center text-slate-500 space-y-3 font-mono">
                   <ShoppingCart className="w-12 h-12 text-slate-400" />
@@ -322,31 +322,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
 
                   {/* Delivery Form */}
-                  <div className="pt-4 border-t border-slate-200 space-y-3 font-sans">
+                  <div className="pt-3 border-t border-slate-200 space-y-2 font-sans">
                     <h3 className="text-xs font-mono font-bold uppercase text-amber-800 flex items-center gap-1.5">
                       <MapPin className="w-4 h-4 text-cyan-600" />
                       <span>Informations de Livraison Burkina Faso</span>
                     </h3>
 
-                    <div className="space-y-2 text-xs">
+                    <div className="space-y-1.5 text-xs">
                       <div>
-                        <label className="block text-slate-600 mb-1">Nom & Prénom</label>
+                        <label className="block text-slate-600 mb-0.5">Nom & Prénom</label>
                         <input
                           type="text"
                           placeholder="Ex: Ibrahim Sanou"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-1.5">
                         <div>
-                          <label className="block text-slate-600 mb-1">Ville</label>
+                          <label className="block text-slate-600 mb-0.5">Ville</label>
                           <select
                             value={city}
                             onChange={(e) => setCity(e.target.value)}
-                            className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
+                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
                           >
                             <option value="Ouagadougou">Ouagadougou</option>
                             <option value="Bobo-Dioulasso">Bobo-Dioulasso</option>
@@ -358,25 +358,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 mb-1">Quartier / Repère</label>
+                          <label className="block text-slate-600 mb-0.5">Quartier / Repère</label>
                           <input
                             type="text"
-                            placeholder="Ex: Kalgondin, Zogona..."
+                            placeholder="Ex: Kalgondin..."
                             value={neighborhood}
                             onChange={(e) => setNeighborhood(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
+                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-slate-600 mb-1">Numéro Téléphone / WhatsApp</label>
+                        <label className="block text-slate-600 mb-0.5">Numéro Téléphone / WhatsApp</label>
                         <input
                           type="tel"
                           placeholder="Ex: +226 70 12 34 56"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:border-amber-500 focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:border-amber-500 focus:bg-white"
                         />
                       </div>
                     </div>
@@ -526,7 +526,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-sm transition-all"
               >
                 <Send className="w-5 h-5" />
-                <span>Envoyer Commande par WhatsApp (+226 67 31 46 05)</span>
+                <span>Envoyer Commande par WhatsApp (+226 65 48 47 38)</span>
               </button>
             </div>
           )}

@@ -6,9 +6,12 @@ import { Sparkles, ShoppingBag, Send, ShieldCheck, Zap, Cpu, Search } from 'luci
 interface Hero3DProps {
   onOpenSourcingModal: () => void;
   onExploreClick: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  onSearchSubmit: () => void;
 }
 
-export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreClick }) => {
+export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreClick, searchQuery, onSearchChange, onSearchSubmit }) => {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -229,6 +232,34 @@ export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreCl
             Si un composant n'est pas en stock, <strong className="text-cyan-700 font-semibold">commandez-le directement sur-mesure</strong> via notre service dédié WhatsApp.
           </p>
 
+          {/* Compact Search Bar (Name or MPN Reference) */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSearchSubmit();
+            }}
+            id="hero-search"
+            className="flex flex-col sm:flex-row gap-2 pt-1 max-w-xl mx-auto lg:mx-0"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Rechercher par nom ou référence (ex: NE555, STM32...)"
+                className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-300 focus:border-amber-500 rounded-xl text-slate-900 placeholder-slate-400 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all shadow-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 font-mono uppercase tracking-wide transition-all"
+            >
+              <Search className="w-4 h-4" />
+              <span>Rechercher</span>
+            </button>
+          </form>
+
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
             <button
@@ -256,7 +287,7 @@ export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreCl
               </div>
               <div>
                 <div className="text-xs text-slate-500 uppercase font-mono">Recherche MPN</div>
-                <div className="text-sm font-bold text-slate-900">Intelligence AI</div>
+                <div className="text-sm font-bold text-slate-900">Rapide & Simple</div>
               </div>
             </div>
 
@@ -276,7 +307,7 @@ export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreCl
               </div>
               <div>
                 <div className="text-xs text-slate-500 uppercase font-mono">WhatsApp Direct</div>
-                <div className="text-sm font-bold text-emerald-700">+226 67 31 46 05</div>
+                <div className="text-sm font-bold text-emerald-700">+226 65 48 47 38</div>
               </div>
             </div>
           </div>

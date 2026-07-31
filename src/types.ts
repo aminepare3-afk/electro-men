@@ -44,25 +44,3 @@ export interface CustomSourcingRequest {
   status: 'PENDING' | 'QUOTED' | 'ORDERED' | 'FULFILLED';
   createdAt: string;
 }
-
-export interface SmartSearchReferenceInfo {
-  reference: string;
-  foundInCatalog: boolean;
-  matchedProduct?: Product;
-  aiLookup?: {
-    reference: string;
-    fullTitle: string;
-    category: string;
-    summary: string;
-    packageType: string;
-    pinCount: string;
-    keySpecs: string[];
-    typicalApplications: string[];
-    imageUrl?: string;
-  };
-}
-
-export interface SupabaseConfig {
-  supabaseUrl: string;
-  supabaseAnonKey: string;
-}

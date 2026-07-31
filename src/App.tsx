@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero3D } from './components/Hero3D';
-import { SmartSearch } from './components/SmartSearch';
 import { ProductCard } from './components/ProductCard';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { SourcingModal } from './components/SourcingModal';
@@ -238,10 +237,19 @@ export default function App() {
     }
   };
 
-  const scrollToSearch = () => {
-    const el = document.getElementById('search-section');
+  const scrollToCatalog = () => {
+    const el = document.getElementById('catalog-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const scrollToHeroSearch = () => {
+    const el = document.getElementById('hero-search');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const input = el.querySelector('input');
+      if (input) (input as HTMLInputElement).focus();
     }
   };
 
@@ -298,31 +306,23 @@ export default function App() {
           setSourcingMpnInfo(undefined);
           setIsSourcingOpen(true);
         }}
-        onScrollToSearch={scrollToSearch}
+        onScrollToSearch={scrollToHeroSearch}
       />
 
-      {/* 3D Motion Hero Banner */}
+      {/* 3D Motion Hero Banner + Search */}
       <Hero3D
         onOpenSourcingModal={() => {
           setSourcingMpnInfo(undefined);
           setIsSourcingOpen(true);
         }}
-        onExploreClick={scrollToSearch}
-      />
-
-      {/* Smart Search Engine (By Name & MPN Reference + AI Lookup) */}
-      <SmartSearch
+        onExploreClick={scrollToCatalog}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-        categories={CATEGORIES}
-        products={products}
-        onOpenSourcingForMpn={handleOpenSourcingForMpn}
+        onSearchSubmit={scrollToCatalog}
       />
 
       {/* Main Catalogue Grid Section */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
+      <main id="catalog-section" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 scroll-mt-20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
           <div>
             <h2 className="text-2xl font-bold font-mono uppercase tracking-wide text-slate-900 flex items-center gap-2">
@@ -336,17 +336,18 @@ export default function App() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setSourcingMpnInfo(undefined);
-                setIsSourcingOpen(true);
-              }}
-              className="px-4 py-2.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-cyan-800 text-xs font-mono font-medium flex items-center gap-2 shadow-sm"
+          <div className="relative">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full sm:w-64 pl-3.5 pr-8 py-2.5 bg-white border border-slate-300 focus:border-amber-500 rounded-xl text-slate-900 text-sm font-sans focus:outline-none appearance-none cursor-pointer shadow-sm"
             >
-              <Globe className="w-4 h-4 text-cyan-600" />
-              <span>Demande de Commande Sur-Mesure</span>
-            </button>
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -354,9 +355,13 @@ export default function App() {
         {filteredProducts.length === 0 ? (
           <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 font-mono space-y-4 shadow-sm">
             <Cpu className="w-16 h-16 text-slate-400 mx-auto" />
-            <h3 className="text-lg font-bold text-slate-900">Aucun composant trouvé dans cette sélection.</h3>
+            <h3 className="text-lg font-bold text-slate-900">
+              {searchQuery
+                ? `"${searchQuery}" n'est pas disponible pour l'instant.`
+                : 'Aucun composant trouvé dans cette sélection.'}
+            </h3>
             <p className="text-slate-600 text-xs max-w-md mx-auto">
-              Si la référence <strong className="text-amber-800 font-mono">{searchQuery || 'recherchée'}</strong> n'est pas encore enregistrée en stock, vous pouvez la commander sur-mesure !
+              Contactez notre service pour une commande sur-mesure et nous nous chargeons de vous le procurer.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -390,6 +395,29 @@ export default function App() {
             ))}
           </div>
         )}
+
+        {/* Custom Sourcing CTA Banner - Below Catalogue */}
+        <div className="mt-4 p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+          <div className="text-center sm:text-left">
+            <h3 className="text-lg font-bold font-mono uppercase tracking-wide flex items-center justify-center sm:justify-start gap-2">
+              <Globe className="w-5 h-5 text-cyan-400" />
+              <span>Composant introuvable dans le catalogue ?</span>
+            </h3>
+            <p className="text-slate-300 text-sm mt-1">
+              Faites une demande de commande sur-mesure, nous le sourçons pour vous.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setSourcingMpnInfo(undefined);
+              setIsSourcingOpen(true);
+            }}
+            className="shrink-0 px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs uppercase flex items-center gap-2 shadow-sm transition-all"
+          >
+            <Send className="w-4 h-4" />
+            <span>Demande de Commande Sur-Mesure</span>
+          </button>
+        </div>
       </main>
 
       {/* Footer */}
@@ -414,7 +442,7 @@ export default function App() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-slate-700">
                 <Phone className="w-4 h-4 text-emerald-600" />
-                <span>WhatsApp Direct : <strong className="text-emerald-700">+226 67 31 46 05</strong></span>
+                <span>WhatsApp Direct : <strong className="text-emerald-700">+226 65 48 47 38</strong></span>
               </div>
               <div className="flex items-center gap-2 text-slate-700">
                 <MapPin className="w-4 h-4 text-amber-600" />
@@ -429,9 +457,8 @@ export default function App() {
 
         </div>
 
-        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-[11px] font-mono text-slate-500 gap-2">
+        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-center text-[11px] font-mono text-slate-500 gap-2">
           <span>© {new Date().getFullYear()} ELECTRO MEN — Tous droits réservés.</span>
-          <span>Conçu avec Motion Design 3D & Intelligence AI Gemini.</span>
         </div>
       </footer>
 
