@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest } from '../types';
 import { CATEGORIES } from '../data/initialData';
+import { ADMIN_PASSWORD } from '../adminConfig';
 
 interface AdminPanelProps {
   products: Product[];
@@ -42,7 +43,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === 'Electronok') {
+    if (passwordInput === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
       setPasswordError(false);
     } else {

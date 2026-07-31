@@ -11,6 +11,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { Product, CartItem } from './types';
 import { INITIAL_PRODUCTS, CATEGORIES, DEMO_SAMPLE_PRODUCTS } from './data/initialData';
 import { Logo } from './components/Logo';
+import { ADMIN_PASSWORD } from './adminConfig';
 import { Send, Phone, MapPin, Globe, ShieldCheck, Zap, Cpu, Sparkles, Plus, ArrowLeft } from 'lucide-react';
 
 export default function App() {
@@ -168,21 +169,99 @@ export default function App() {
     setCart([]);
   };
 
-  // Admin Product Operations
-  const handleAddProduct = (newProduct: Product) => {
-    setProducts((prev) => [newProduct, ...prev]);
+  // Admin Product Operations — synced with Supabase via /api/products
+  const [dbError, setDbError] = useState<string | null>(null);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch('/api/products');
+      const json = await res.json();
+      if (json.success) {
+        setProducts(json.data);
+        setDbError(null);
+      } else {
+        // Base de données non configurée : on garde le cache local en attendant
+        setDbError(json.error || null);
+      }
+    } catch (e) {
+      console.error('Erreur chargement produits distants:', e);
+    }
   };
 
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)));
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleAddProduct = async (newProduct: Product) => {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: newProduct, adminPassword: ADMIN_PASSWORD }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchProducts();
+      } else {
+        alert(json.error || "Erreur lors de l'ajout du produit.");
+      }
+    } catch (e) {
+      alert("Impossible de contacter le serveur. Vérifiez votre connexion.");
+    }
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product: updatedProduct, adminPassword: ADMIN_PASSWORD }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchProducts();
+      } else {
+        alert(json.error || "Erreur lors de la modification du produit.");
+      }
+    } catch (e) {
+      alert("Impossible de contacter le serveur. Vérifiez votre connexion.");
+    }
   };
 
-  const handleClearAllProducts = () => {
-    setProducts([]);
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: productId, adminPassword: ADMIN_PASSWORD }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchProducts();
+      } else {
+        alert(json.error || "Erreur lors de la suppression du produit.");
+      }
+    } catch (e) {
+      alert("Impossible de contacter le serveur. Vérifiez votre connexion.");
+    }
+  };
+
+  const handleClearAllProducts = async () => {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearAll: true, adminPassword: ADMIN_PASSWORD }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchProducts();
+      } else {
+        alert(json.error || "Erreur lors de la suppression.");
+      }
+    } catch (e) {
+      alert("Impossible de contacter le serveur. Vérifiez votre connexion.");
+    }
   };
 
   const handleLoadDemoProducts = () => {
