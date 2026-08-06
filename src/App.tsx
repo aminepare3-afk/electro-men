@@ -11,6 +11,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { Product, CartItem } from './types';
 import { INITIAL_PRODUCTS, CATEGORIES, DEMO_SAMPLE_PRODUCTS } from './data/initialData';
 import { Logo } from './components/Logo';
+import { InstallPwaButton } from './components/InstallPwaButton';
 import { Send, Phone, MapPin, Globe, ShieldCheck, Zap, Cpu, Sparkles, Plus, ArrowLeft } from 'lucide-react';
 
 export default function App() {
@@ -604,6 +605,8 @@ export default function App() {
         onRemoveFromCompare={handleRemoveFromCompare}
         onClearCompare={handleClearCompare}
       />
+
+      <InstallPwaButton />
 
     </div>
   );

@@ -179,15 +179,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-50 overflow-hidden h-dvh">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white border-l border-slate-200 text-slate-900 flex flex-col shadow-2xl">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 h-dvh">
+        <div className="w-screen max-w-md h-dvh bg-white border-l border-slate-200 text-slate-900 flex flex-col shadow-2xl">
           
           {/* Drawer Header */}
-          <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+          <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-amber-500 text-slate-950 font-bold">
                 <ShoppingCart className="w-5 h-5" />
@@ -209,7 +209,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </div>
 
           {/* Navigation Tab Bar */}
-          <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-2 gap-2 font-mono text-xs">
+          <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-2 gap-2 font-mono text-xs shrink-0">
             <button
               onClick={() => setActiveTab('cart')}
               className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
@@ -565,7 +565,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {/* Drawer Footer for Current Cart */}
           {activeTab === 'cart' && cart.length > 0 && (
-            <div className="p-5 bg-slate-50 border-t border-slate-200 space-y-3 font-mono">
+            <div
+              className="p-5 bg-slate-50 border-t border-slate-200 space-y-3 font-mono shrink-0"
+              style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            >
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-600 font-sans">Total Commande :</span>
                 <span className="text-2xl font-black text-amber-800">
