@@ -3,6 +3,7 @@ import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckC
 import { Product, StockStatus, CustomSourcingRequest } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
+import { compressImage } from '../utils/imageCompression';
 
 interface AdminPanelProps {
   products: Product[];
@@ -71,19 +72,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [compressingImages, setCompressingImages] = useState(false);
+
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const remainingSlots = MAX_IMAGES - newImages.length;
     const filesToAdd = Array.from(files).slice(0, remainingSlots);
-    filesToAdd.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewImages((prev) => (prev.length < MAX_IMAGES ? [...prev, reader.result as string] : prev));
-      };
-      reader.readAsDataURL(file);
-    });
     e.target.value = '';
+
+    setCompressingImages(true);
+    try {
+      const compressed = await Promise.all(filesToAdd.map((file) => compressImage(file, 1000, 0.75)));
+      setNewImages((prev) => [...prev, ...compressed].slice(0, MAX_IMAGES));
+    } catch (err) {
+      console.error('Erreur compression image:', err);
+    } finally {
+      setCompressingImages(false);
+    }
   };
 
   const handleAddImageUrl = () => {
@@ -576,10 +582,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             {newImages.length < MAX_IMAGES && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                <label className="px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl cursor-pointer text-xs font-mono text-slate-800 flex items-center gap-2">
+                <label className={`px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl cursor-pointer text-xs font-mono text-slate-800 flex items-center gap-2 ${compressingImages ? 'opacity-60 pointer-events-none' : ''}`}>
                   <Upload className="w-4 h-4 text-amber-600" />
-                  <span>Téléverser une/des image(s)...</span>
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageFileUpload} />
+                  <span>{compressingImages ? 'Compression en cours...' : 'Téléverser une/des image(s)...'}</span>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageFileUpload} disabled={compressingImages} />
                 </label>
 
                 <div className="flex gap-2">

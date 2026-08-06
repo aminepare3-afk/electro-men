@@ -164,6 +164,7 @@ export default function App() {
 
   // Admin Product Operations — synced with Supabase via /api/products
   const [dbError, setDbError] = useState<string | null>(null);
+  const [productsLoading, setProductsLoading] = useState(true);
 
   const fetchProducts = async () => {
     try {
@@ -178,6 +179,8 @@ export default function App() {
       }
     } catch (e) {
       console.error('Erreur chargement produits distants:', e);
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -305,7 +308,7 @@ export default function App() {
       if (aPromo !== bPromo) return bPromo - aPromo;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     })
-    .slice(0, 3);
+    .slice(0, 6);
 
   // Handle Search Input (triggers admin mode if 'admin' or '/admin' is typed)
   const handleSearchChange = (query: string) => {
@@ -416,6 +419,7 @@ export default function App() {
         onSearchChange={handleSearchChange}
         onSearchSubmit={scrollToCatalog}
         featuredProducts={featuredProducts}
+        featuredLoading={productsLoading}
         onSelectProduct={(p) => setSelectedProduct(p)}
       />
 
