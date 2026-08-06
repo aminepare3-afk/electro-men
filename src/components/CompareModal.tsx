@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ArrowLeftRight, ShoppingCart, Send, FileText, CheckCircle2, Clock, AlertTriangle, Trash2, Plus, Sparkles, Scale } from 'lucide-react';
 import { Product } from '../types';
+import { getMainImage, getFinalPrice } from '../utils/product';
 
 interface CompareModalProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
 
   const getWhatsAppUrl = (product: Product) => {
     const msg = encodeURIComponent(
-      `Bonjour ELECTRO MEN (+226 65 48 47 38), je souhaite commander ce composant suite à une comparaison :\n\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Prix : ${product.priceFcfa.toLocaleString('fr-FR')} FCFA`
+      `Bonjour ELECTRO MEN (+226 65 48 47 38), je souhaite commander ce composant suite à une comparaison :\n\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Prix : ${getFinalPrice(product).toLocaleString('fr-FR')} FCFA`
     );
     return `https://wa.me/22665484738?text=${msg}`;
   };
@@ -193,7 +194,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                       <>
                         <div className="flex gap-3 items-start">
                           <img
-                            src={prod1.imageUrl || 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80'}
+                            src={getMainImage(prod1)}
                             alt={prod1.name}
                             className="w-20 h-20 object-cover rounded-lg border border-slate-200 bg-white flex-shrink-0"
                             onError={(e) => {
@@ -215,7 +216,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           <div>
                             <span className="text-[10px] font-mono text-slate-400 block">PRIX UNITAIRE</span>
                             <span className="text-lg font-bold font-mono text-amber-800">
-                              {prod1.priceFcfa.toLocaleString('fr-FR')} FCFA
+                              {getFinalPrice(prod1).toLocaleString('fr-FR')} FCFA
                             </span>
                           </div>
                           <div>{getStatusBadge(prod1)}</div>
@@ -254,7 +255,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                       <>
                         <div className="flex gap-3 items-start">
                           <img
-                            src={prod2.imageUrl || 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80'}
+                            src={getMainImage(prod2)}
                             alt={prod2.name}
                             className="w-20 h-20 object-cover rounded-lg border border-slate-200 bg-white flex-shrink-0"
                             onError={(e) => {
@@ -276,7 +277,7 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           <div>
                             <span className="text-[10px] font-mono text-slate-400 block">PRIX UNITAIRE</span>
                             <span className="text-lg font-bold font-mono text-cyan-800">
-                              {prod2.priceFcfa.toLocaleString('fr-FR')} FCFA
+                              {getFinalPrice(prod2).toLocaleString('fr-FR')} FCFA
                             </span>
                           </div>
                           <div>{getStatusBadge(prod2)}</div>
@@ -336,10 +337,10 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           Prix Estimé (FCFA)
                         </td>
                         <td className="p-3 font-mono font-bold text-amber-800 border-r border-slate-200 bg-amber-50/20">
-                          {prod1 ? `${prod1.priceFcfa.toLocaleString('fr-FR')} FCFA` : '-'}
+                          {prod1 ? `${getFinalPrice(prod1).toLocaleString('fr-FR')} FCFA` : '-'}
                         </td>
                         <td className="p-3 font-mono font-bold text-cyan-800 bg-cyan-50/20">
-                          {prod2 ? `${prod2.priceFcfa.toLocaleString('fr-FR')} FCFA` : '-'}
+                          {prod2 ? `${getFinalPrice(prod2).toLocaleString('fr-FR')} FCFA` : '-'}
                         </td>
                       </tr>
 

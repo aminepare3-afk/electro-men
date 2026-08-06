@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Scale, X, ArrowRight, Trash2 } from 'lucide-react';
 import { Product } from '../types';
+import { getMainImage } from '../utils/product';
 
 interface CompareFloatingBarProps {
   compareProducts: Product[];
@@ -42,7 +43,7 @@ export const CompareFloatingBar: React.FC<CompareFloatingBarProps> = ({
                   className="flex items-center gap-2 bg-slate-800/90 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs font-mono"
                 >
                   <img
-                    src={p.imageUrl || 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80'}
+                    src={getMainImage(p)}
                     alt={p.mpn}
                     className="w-6 h-6 object-cover rounded bg-white flex-shrink-0"
                     onError={(e) => {

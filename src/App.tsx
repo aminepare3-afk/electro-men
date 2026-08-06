@@ -185,6 +185,19 @@ export default function App() {
     fetchProducts();
   }, []);
 
+  // Deep-link: open a specific product if the URL contains ?produit=<id> (shared link)
+  useEffect(() => {
+    if (products.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get('produit');
+    if (productId) {
+      const match = products.find((p) => p.id === productId);
+      if (match) {
+        setSelectedProduct(match);
+      }
+    }
+  }, [products]);
+
   const handleAddProduct = async (newProduct: Product, adminPassword: string) => {
     try {
       const res = await fetch('/api/products', {

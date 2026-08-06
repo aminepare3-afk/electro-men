@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest } from '../types';
 import { CATEGORIES } from '../data/initialData';
+import { getMainImage } from '../utils/product';
 
 interface AdminPanelProps {
   products: Product[];
@@ -31,15 +32,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newMpn, setNewMpn] = useState('');
   const [newCategory, setNewCategory] = useState(CATEGORIES[1]);
   const [newPrice, setNewPrice] = useState<number>(2500);
+  const [newDiscountPercent, setNewDiscountPercent] = useState<string>('');
   const [newStock, setNewStock] = useState<number>(20);
   const [newStatus, setNewStatus] = useState<StockStatus>('IN_STOCK');
   const [newDescription, setNewDescription] = useState('');
   const [newDatasheet, setNewDatasheet] = useState('');
-  const [newImageUrl, setNewImageUrl] = useState('');
+  const [newImages, setNewImages] = useState<string[]>([]);
+  const [newImageUrlInput, setNewImageUrlInput] = useState('');
+  const [newVideoUrl, setNewVideoUrl] = useState('');
   const [specKey, setSpecKey] = useState('');
   const [specValue, setSpecValue] = useState('');
   const [specsList, setSpecsList] = useState<Record<string, string>>({});
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+
+  const MAX_IMAGES = 6;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,14 +71,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const remainingSlots = MAX_IMAGES - newImages.length;
+    const filesToAdd = Array.from(files).slice(0, remainingSlots);
+    filesToAdd.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setNewImageUrl(reader.result as string);
+        setNewImages((prev) => (prev.length < MAX_IMAGES ? [...prev, reader.result as string] : prev));
       };
       reader.readAsDataURL(file);
-    }
+    });
+    e.target.value = '';
+  };
+
+  const handleAddImageUrl = () => {
+    const url = newImageUrlInput.trim();
+    if (!url || newImages.length >= MAX_IMAGES) return;
+    setNewImages((prev) => [...prev, url]);
+    setNewImageUrlInput('');
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAddSpec = () => {
@@ -94,20 +115,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     e.preventDefault();
     if (!newTitle.trim() || !newMpn.trim()) return;
 
+    const parsedDiscount = parseInt(newDiscountPercent, 10);
+
     const productObj: Product = {
       id: editingProductId || `prod-${Date.now()}`,
       name: newTitle.trim(),
       mpn: newMpn.trim().toUpperCase(),
       category: newCategory,
       priceFcfa: newPrice,
+      discountPercent: !isNaN(parsedDiscount) && parsedDiscount > 0 ? Math.min(parsedDiscount, 95) : undefined,
       stock: newStock,
       status: newStatus,
       description: newDescription,
       specifications: specsList,
       datasheetUrl: newDatasheet.trim() || undefined,
-      imageUrl:
-        newImageUrl.trim() ||
-        'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80',
+      images:
+        newImages.length > 0
+          ? newImages
+          : ['https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80'],
+      videoUrl: newVideoUrl.trim() || undefined,
       createdAt: new Date().toISOString(),
     };
 
@@ -128,11 +154,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewMpn(product.mpn);
     setNewCategory(product.category);
     setNewPrice(product.priceFcfa);
+    setNewDiscountPercent(product.discountPercent ? String(product.discountPercent) : '');
     setNewStock(product.stock);
     setNewStatus(product.status);
     setNewDescription(product.description);
     setNewDatasheet(product.datasheetUrl || '');
-    setNewImageUrl(product.imageUrl);
+    setNewImages(
+      product.images && product.images.length > 0
+        ? product.images
+        : (product as any).imageUrl
+        ? [(product as any).imageUrl]
+        : []
+    );
+    setNewVideoUrl(product.videoUrl || '');
     setSpecsList(product.specifications || {});
     setActiveTab('add');
   };
@@ -143,11 +177,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewMpn('');
     setNewCategory(CATEGORIES[1]);
     setNewPrice(2500);
+    setNewDiscountPercent('');
     setNewStock(20);
     setNewStatus('IN_STOCK');
     setNewDescription('');
     setNewDatasheet('');
-    setNewImageUrl('');
+    setNewImages([]);
+    setNewImageUrlInput('');
+    setNewVideoUrl('');
     setSpecsList({});
   };
 
@@ -327,17 +364,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {products.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/80">
                       <td className="p-3">
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          className="w-10 h-10 object-cover rounded-lg bg-slate-100 border border-slate-200"
-                        />
+                        <div className="relative w-10 h-10">
+                          <img
+                            src={getMainImage(p)}
+                            alt={p.name}
+                            className="w-10 h-10 object-cover rounded-lg bg-slate-100 border border-slate-200"
+                          />
+                          {p.images && p.images.length > 1 && (
+                            <span className="absolute -bottom-1 -right-1 px-1 rounded bg-slate-900 text-white text-[9px] font-mono">
+                              {p.images.length}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3 font-mono font-bold text-amber-700">{p.mpn}</td>
                       <td className="p-3 font-semibold text-slate-900 max-w-xs truncate">{p.name}</td>
                       <td className="p-3 text-slate-600 font-mono">{p.category}</td>
                       <td className="p-3 font-mono font-bold text-emerald-700">
                         {p.priceFcfa.toLocaleString('fr-FR')} FCFA
+                        {p.discountPercent ? (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold align-middle">
+                            -{p.discountPercent}%
+                          </span>
+                        ) : null}
                       </td>
                       <td className="p-3 font-mono text-slate-700">{p.stock}</td>
                       <td className="p-3 text-right space-x-2">
@@ -420,7 +469,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-mono uppercase text-slate-700 mb-1">Prix Unitaire (FCFA)</label>
               <input
@@ -431,6 +480,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 onChange={(e) => setNewPrice(parseInt(e.target.value) || 0)}
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-sm focus:border-amber-500 focus:outline-none"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono uppercase text-red-700 mb-1">Promo / Réduction (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="95"
+                placeholder="Ex: 15"
+                value={newDiscountPercent}
+                onChange={(e) => setNewDiscountPercent(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white border border-red-200 rounded-xl text-red-700 font-mono text-sm focus:border-red-500 focus:outline-none"
+              />
+              {newDiscountPercent && parseInt(newDiscountPercent, 10) > 0 && (
+                <p className="text-[10px] font-mono text-red-600 mt-1">
+                  Prix promo : {Math.round(newPrice * (1 - parseInt(newDiscountPercent, 10) / 100)).toLocaleString('fr-FR')} FCFA
+                </p>
+              )}
             </div>
 
             <div>
@@ -459,33 +526,75 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          {/* Image Uploader */}
+          {/* Multi-Image Gallery Uploader (up to 6 photos) */}
           <div className="space-y-2">
             <label className="block text-xs font-mono uppercase text-slate-700">
-              Photo du Composant (Téléverser depuis l'appareil OU Coller une URL)
+              Photos du Composant — jusqu'à {MAX_IMAGES} images ({newImages.length}/{MAX_IMAGES})
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-              <label className="px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl cursor-pointer text-xs font-mono text-slate-800 flex items-center gap-2">
-                <Upload className="w-4 h-4 text-amber-600" />
-                <span>Téléverser une image...</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageFileUpload} />
-              </label>
 
-              <input
-                type="text"
-                placeholder="Ou coller une URL d'image (https://...)"
-                value={newImageUrl}
-                onChange={(e) => setNewImageUrl(e.target.value)}
-                className="px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-mono focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            {newImageUrl && (
-              <div className="flex items-center gap-3 pt-2">
-                <img src={newImageUrl} alt="Aperçu" className="w-16 h-16 object-cover rounded-lg border border-amber-500" />
-                <span className="text-xs text-emerald-700 font-mono font-medium">Image configurée avec succès !</span>
+            {newImages.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {newImages.map((img, idx) => (
+                  <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-amber-400 bg-slate-100">
+                    <img src={img} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                    {idx === 0 && (
+                      <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-mono font-bold">
+                        Principale
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(idx)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center opacity-90 hover:opacity-100"
+                      title="Retirer cette photo"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
+
+            {newImages.length < MAX_IMAGES && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                <label className="px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl cursor-pointer text-xs font-mono text-slate-800 flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-amber-600" />
+                  <span>Téléverser une/des image(s)...</span>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageFileUpload} />
+                </label>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ou coller une URL d'image (https://...)"
+                    value={newImageUrlInput}
+                    onChange={(e) => setNewImageUrlInput(e.target.value)}
+                    className="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-mono focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddImageUrl}
+                    className="px-3 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-mono rounded-xl font-bold shrink-0"
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Video URL */}
+          <div>
+            <label className="block text-xs font-mono uppercase text-slate-700 mb-1">
+              Vidéo de Présentation (Optionnel — lien YouTube, Vimeo, ou fichier .mp4)
+            </label>
+            <input
+              type="url"
+              placeholder="Ex: https://www.youtube.com/watch?v=..."
+              value={newVideoUrl}
+              onChange={(e) => setNewVideoUrl(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-xs font-mono focus:border-amber-500 focus:outline-none"
+            />
           </div>
 
           <div>

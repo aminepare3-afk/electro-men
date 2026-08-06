@@ -18,7 +18,10 @@ export const SourcingModal: React.FC<SourcingModalProps> = ({
   const [quantityNeeded, setQuantityNeeded] = useState(10);
   const [customerName, setCustomerName] = useState('');
   const [phoneWhatsApp, setPhoneWhatsApp] = useState('');
+  const [city, setCity] = useState('Ouagadougou');
   const [estimatedBudgetFcfa, setEstimatedBudgetFcfa] = useState('');
+  const [projectUsage, setProjectUsage] = useState('');
+  const [urgency, setUrgency] = useState('Normal (1 semaine)');
   const [descriptionOrLink, setDescriptionOrLink] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -48,13 +51,16 @@ export const SourcingModal: React.FC<SourcingModalProps> = ({
 
     // Create formatted WhatsApp message targeting +226 65 48 47 38
     const msg = encodeURIComponent(
-      `Bonjour ELECTRO MEN (+226 65 48 47 38),\n\n*DEMANDE DE COMPOSANT SUR-MESURE*\n\n` +
-        `👤 Client : ${customerName || 'Client ELECTRO MEN'}\n` +
-        `📱 WhatsApp : ${phoneWhatsApp}\n` +
-        `⚡ Composant/MPN : ${componentNameOrMpn}\n` +
-        `📦 Quantité souhaitée : ${quantityNeeded} unités\n` +
-        `💰 Budget estimé : ${estimatedBudgetFcfa ? estimatedBudgetFcfa + ' FCFA' : 'Non spécifié'}\n` +
-        `📝 Détails/Lien : ${descriptionOrLink || 'Aucun'}\n\n` +
+      `Bonjour ELECTRO MEN 👋\n\n*NOUVELLE DEMANDE DE COMPOSANT SUR-MESURE*\n\n` +
+        `👤 *Client* : ${customerName || 'Client ELECTRO MEN'}\n` +
+        `📱 *WhatsApp* : ${phoneWhatsApp}\n` +
+        `📍 *Ville* : ${city}\n\n` +
+        `⚡ *Composant/MPN* : ${componentNameOrMpn}\n` +
+        `📦 *Quantité souhaitée* : ${quantityNeeded} unités\n` +
+        `💰 *Budget estimé* : ${estimatedBudgetFcfa ? estimatedBudgetFcfa + ' FCFA' : 'Non spécifié'}\n` +
+        `⏱️ *Délai souhaité* : ${urgency}\n` +
+        (projectUsage.trim() ? `🛠️ *Utilisation / Projet* : ${projectUsage.trim()}\n` : '') +
+        `📝 *Détails/Lien* : ${descriptionOrLink || 'Aucun'}\n\n` +
         `Merci de vérifier la disponibilité et de me transmettre le devis !`
     );
 
@@ -196,16 +202,64 @@ export const SourcingModal: React.FC<SourcingModalProps> = ({
 
               <div>
                 <label className="block text-xs font-mono uppercase text-slate-700 font-semibold mb-1">
-                  Lien Web / Fiche Technique ou Description Spécifique
+                  Ville de Livraison
+                </label>
+                <select
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:border-amber-500 focus:bg-white focus:outline-none"
+                >
+                  <option value="Ouagadougou">Ouagadougou</option>
+                  <option value="Bobo-Dioulasso">Bobo-Dioulasso</option>
+                  <option value="Koudougou">Koudougou</option>
+                  <option value="Banfora">Banfora</option>
+                  <option value="Ouahigouya">Ouahigouya</option>
+                  <option value="Autre Ville (Expédition)">Autre Ville</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-700 font-semibold mb-1">
+                  Délai Souhaité
+                </label>
+                <select
+                  value={urgency}
+                  onChange={(e) => setUrgency(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:border-amber-500 focus:bg-white focus:outline-none"
+                >
+                  <option value="Urgent (24-48h)">Urgent (24-48h)</option>
+                  <option value="Normal (1 semaine)">Normal (1 semaine)</option>
+                  <option value="Flexible (2-3 semaines)">Flexible (2-3 semaines)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-700 font-semibold mb-1">
+                  Utilisation Prévue / Projet
                 </label>
                 <input
                   type="text"
-                  placeholder="Collez l'URL de la fiche ou spécifications"
-                  value={descriptionOrLink}
-                  onChange={(e) => setDescriptionOrLink(e.target.value)}
+                  placeholder="Ex: Projet robotique étudiant"
+                  value={projectUsage}
+                  onChange={(e) => setProjectUsage(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:border-amber-500 focus:bg-white focus:outline-none"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono uppercase text-slate-700 font-semibold mb-1">
+                Lien Web / Fiche Technique ou Description Spécifique
+              </label>
+              <input
+                type="text"
+                placeholder="Collez l'URL de la fiche ou spécifications"
+                value={descriptionOrLink}
+                onChange={(e) => setDescriptionOrLink(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:border-amber-500 focus:bg-white focus:outline-none"
+              />
             </div>
 
             {/* Photo Attachment Preview */}

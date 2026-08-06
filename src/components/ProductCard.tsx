@@ -1,7 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'motion/react';
-import { ShoppingCart, ExternalLink, Send, CheckCircle2, Clock, AlertTriangle, FileText, Cpu, ArrowRightLeft } from 'lucide-react';
+import { ShoppingCart, ExternalLink, Send, CheckCircle2, Clock, AlertTriangle, FileText, Cpu, ArrowRightLeft, Share2, Images, Tag } from 'lucide-react';
 import { Product } from '../types';
+import { getMainImage, getFinalPrice, hasDiscount } from '../utils/product';
+import { shareContent } from '../utils/share';
 
 interface ProductCardProps {
   product: Product;
@@ -21,6 +23,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onOpenSourcingForMpn,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+
+  const finalPrice = getFinalPrice(product);
+  const onSale = hasDiscount(product);
 
   // Motion values for normalized mouse positions (-0.5 to 0.5)
   const x = useMotionValue(0);
@@ -51,9 +57,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // Format WhatsApp direct link for this specific item
   const formattedMsg = encodeURIComponent(
-    `Bonjour ELECTRO MEN (+226 65 48 47 38), je souhaite commander le composant suivant :\n\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Prix : ${product.priceFcfa.toLocaleString('fr-FR')} FCFA\n- Disponibilité : ${product.status === 'IN_STOCK' ? 'En Stock' : 'Sur Commande'}\n\nMerci de me confirmer la livraison !`
+    `Bonjour ELECTRO MEN 👋\n\nJe souhaite commander ce composant :\n\n🔩 *${product.name}*\n📎 Référence MPN : ${product.mpn}\n💰 Prix : ${finalPrice.toLocaleString('fr-FR')} FCFA${onSale ? ` (Promo -${product.discountPercent}% !)` : ''}\n📦 Disponibilité : ${product.status === 'IN_STOCK' ? 'En Stock' : product.status === 'ON_DEMAND' ? 'Sur Commande' : 'Épuisé'}\n\nMerci de me confirmer la disponibilité et les modalités de livraison !`
   );
   const whatsappUrl = `https://wa.me/22665484738?text=${formattedMsg}`;
+
+  const productShareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?produit=${product.id}`;
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const result = await shareContent(
+      product.name,
+      `Découvrez ${product.name} (Réf: ${product.mpn}) chez ELECTRO MEN — ${finalPrice.toLocaleString('fr-FR')} FCFA`,
+      productShareUrl
+    );
+    if (result === 'copied') {
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2000);
+    }
+  };
 
   const getStatusBadge = () => {
     switch (product.status) {
@@ -99,13 +120,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           style={{ transform: 'translateZ(15px)', transformStyle: 'preserve-3d' }}
         >
           <img
-            src={product.imageUrl || 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80'}
+            src={getMainImage(product)}
             alt={product.name}
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
               (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
             }}
           />
+
+          {/* Discount Badge */}
+          {onSale && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2" style={{ transform: 'translateZ(30px) translateX(-50%)' }}>
+              <span className="px-2.5 py-1 rounded-md bg-red-600 text-white font-mono font-bold text-xs shadow-md flex items-center gap-1">
+                <Tag className="w-3 h-3" /> -{product.discountPercent}%
+              </span>
+            </div>
+          )}
+
+          {/* Photo count badge */}
+          {product.images && product.images.length > 1 && (
+            <div className="absolute bottom-3 left-3" style={{ transform: 'translateZ(25px)' }}>
+              <span className="px-2 py-0.5 rounded bg-slate-900/80 text-white font-mono text-[10px] flex items-center gap-1 backdrop-blur-md">
+                <Images className="w-3 h-3" /> {product.images.length}
+              </span>
+            </div>
+          )}
 
           {/* MPN Reference Badge elevated in 3D */}
           <div className="absolute top-3 left-3 flex flex-wrap gap-1" style={{ transform: 'translateZ(25px)' }}>
@@ -115,10 +154,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Category Tag elevated in 3D */}
-          <div className="absolute top-3 right-3" style={{ transform: 'translateZ(25px)' }}>
+          <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5" style={{ transform: 'translateZ(25px)' }}>
             <span className="px-2 py-0.5 rounded bg-slate-900/85 text-white font-mono text-[10px] uppercase tracking-wider backdrop-blur-md shadow-sm">
               {product.category}
             </span>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="w-7 h-7 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-amber-700 flex items-center justify-center shadow-sm backdrop-blur-md transition-colors"
+              title="Partager ce produit"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+            {shareStatus === 'copied' && (
+              <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[9px] shadow-sm whitespace-nowrap">
+                Lien copié !
+              </span>
+            )}
           </div>
 
           {/* Compare Button Toggle */}
@@ -194,9 +246,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="pt-3 border-t border-slate-200 space-y-3" style={{ transform: 'translateZ(10px)' }}>
             <div className="flex items-baseline justify-between">
               <span className="text-xs font-mono text-slate-500 font-medium">PRIX COMPOSANT</span>
-              <span className="text-xl font-extrabold text-amber-700 font-mono tracking-tight">
-                {product.priceFcfa.toLocaleString('fr-FR')} <span className="text-xs font-semibold text-slate-600">FCFA</span>
-              </span>
+              {onSale ? (
+                <span className="text-right">
+                  <span className="block text-[11px] font-mono text-slate-400 line-through">
+                    {product.priceFcfa.toLocaleString('fr-FR')} FCFA
+                  </span>
+                  <span className="text-xl font-extrabold text-red-600 font-mono tracking-tight">
+                    {finalPrice.toLocaleString('fr-FR')} <span className="text-xs font-semibold text-slate-600">FCFA</span>
+                  </span>
+                </span>
+              ) : (
+                <span className="text-xl font-extrabold text-amber-700 font-mono tracking-tight">
+                  {finalPrice.toLocaleString('fr-FR')} <span className="text-xs font-semibold text-slate-600">FCFA</span>
+                </span>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Logo } from './Logo';
-import { ShoppingCart, Globe, Phone, Search, ArrowRightLeft } from 'lucide-react';
+import { ShoppingCart, Globe, Phone, Search, ArrowRightLeft, Share2 } from 'lucide-react';
 import { CartItem } from '../types';
+import { shareContent } from '../utils/share';
 
 interface NavbarProps {
   cart: CartItem[];
@@ -21,6 +22,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   onScrollToSearch,
 }) => {
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const [siteShareStatus, setSiteShareStatus] = useState<'idle' | 'copied'>('idle');
+
+  const handleShareSite = async () => {
+    const result = await shareContent(
+      'ELECTRO MEN — Composants Électroniques & Sourcing',
+      'Découvrez ELECTRO MEN, votre boutique de composants électroniques et service de sourcing sur-mesure au Burkina Faso !',
+      typeof window !== 'undefined' ? window.location.origin : ''
+    );
+    if (result === 'copied') {
+      setSiteShareStatus('copied');
+      setTimeout(() => setSiteShareStatus('idle'), 2000);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm">
@@ -52,6 +66,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Action Group */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Share Site Button */}
+          <div className="relative">
+            <button
+              onClick={handleShareSite}
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+              title="Partager le site ELECTRO MEN"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            {siteShareStatus === 'copied' && (
+              <span className="absolute top-full mt-1 right-0 px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] whitespace-nowrap shadow-sm z-10">
+                Lien copié !
+              </span>
+            )}
+          </div>
+
           {/* Compare Trigger Button */}
           {compareCount > 0 && onOpenCompare && (
             <button

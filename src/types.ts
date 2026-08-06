@@ -6,12 +6,14 @@ export interface Product {
   mpn: string; // Manufacturer Part Number / Reference (e.g., STM32F103C8T6, NE555)
   category: string;
   priceFcfa: number;
+  discountPercent?: number; // 0-100, promotion optionnelle définie par l'admin
   stock: number;
   status: StockStatus;
   description: string;
   specifications: Record<string, string>;
   datasheetUrl?: string;
-  imageUrl: string;
+  images: string[]; // 1 à 6+ photos
+  videoUrl?: string; // Vidéo de présentation optionnelle (lien direct ou YouTube/Vimeo)
   isPopular?: boolean;
   createdAt: string;
 }

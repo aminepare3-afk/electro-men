@@ -34,7 +34,7 @@ export const DEMO_SAMPLE_PRODUCTS: Product[] = [
       'Interfaces': '2x SPI, 2x I2C, 3x USART, USB, CAN'
     },
     datasheetUrl: 'https://www.st.com/resource/en/datasheet/stm32f103c8.pdf',
-    imageUrl: 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80',
+    images: ['https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80'],
     isPopular: true,
     createdAt: new Date().toISOString()
   },
@@ -55,7 +55,7 @@ export const DEMO_SAMPLE_PRODUCTS: Product[] = [
       'Flash': '4MB'
     },
     datasheetUrl: 'https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32d_esp32-wroom-32u_datasheet_en.pdf',
-    imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
+    images: ['https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80'],
     isPopular: true,
     createdAt: new Date().toISOString()
   },
@@ -75,7 +75,7 @@ export const DEMO_SAMPLE_PRODUCTS: Product[] = [
       'Plage Température': '0°C à 70°C'
     },
     datasheetUrl: 'https://www.ti.com/lit/ds/symlink/ne555.pdf',
-    imageUrl: 'https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=600&q=80',
+    images: ['https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=600&q=80'],
     isPopular: false,
     createdAt: new Date().toISOString()
   }

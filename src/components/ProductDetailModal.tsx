@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { X, ShoppingCart, Send, FileText, CheckCircle2, ShieldCheck, Cpu, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ShoppingCart, Send, FileText, ShieldCheck, Cpu, Share2, Tag, PlayCircle } from 'lucide-react';
 import { Product } from '../types';
+import { getImages, getFinalPrice, hasDiscount, getVideoEmbedInfo } from '../utils/product';
+import { shareContent } from '../utils/share';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -14,24 +16,52 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onAddToCart,
 }) => {
   const [qty, setQty] = useState(1);
+  const [activeMedia, setActiveMedia] = useState<{ type: 'image' | 'video'; index: number }>({ type: 'image', index: 0 });
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
+
+  // Reset gallery state whenever a different product is opened
+  useEffect(() => {
+    setQty(1);
+    setActiveMedia({ type: 'image', index: 0 });
+    setShareStatus('idle');
+  }, [product?.id]);
 
   if (!product) return null;
 
+  const images = getImages(product);
+  const finalPrice = getFinalPrice(product);
+  const onSale = hasDiscount(product);
+  const videoInfo = product.videoUrl ? getVideoEmbedInfo(product.videoUrl) : null;
+
   const formattedMsg = encodeURIComponent(
-    `Bonjour ELECTRO MEN (+226 65 48 47 38),\nJe souhaite commander :\n- Produit : ${product.name}\n- Référence MPN : ${product.mpn}\n- Quantité : ${qty}\n- Total estimé : ${(product.priceFcfa * qty).toLocaleString('fr-FR')} FCFA\n\nMerci de me donner les instructions de livraison au Burkina Faso.`
+    `Bonjour ELECTRO MEN 👋\n\nJe souhaite commander :\n\n🔩 *${product.name}*\n📎 Référence MPN : ${product.mpn}\n🔢 Quantité : ${qty}\n💰 Prix unitaire : ${finalPrice.toLocaleString('fr-FR')} FCFA${onSale ? ` (Promo -${product.discountPercent}% !)` : ''}\n💵 Total estimé : ${(finalPrice * qty).toLocaleString('fr-FR')} FCFA\n\nMerci de me donner les instructions de livraison au Burkina Faso.`
   );
   const whatsappUrl = `https://wa.me/22665484738?text=${formattedMsg}`;
+
+  const productShareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?produit=${product.id}`;
+
+  const handleShare = async () => {
+    const result = await shareContent(
+      product.name,
+      `Découvrez ${product.name} (Réf: ${product.mpn}) chez ELECTRO MEN — ${finalPrice.toLocaleString('fr-FR')} FCFA`,
+      productShareUrl
+    );
+    if (result === 'copied') {
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2000);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-3xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-4 sm:p-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700">
+        <div className="p-4 sm:p-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 shrink-0">
               <Cpu className="w-5 h-5" />
             </span>
-            <div>
+            <div className="min-w-0">
               <span className="text-xs font-mono text-amber-800 font-bold block">
                 MPN REFERENCE: {product.mpn}
               </span>
@@ -41,38 +71,115 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg bg-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-300 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleShare}
+              className="p-2 rounded-lg bg-slate-200 text-slate-600 hover:text-amber-700 hover:bg-slate-300 transition-colors relative"
+              title="Partager ce produit"
+            >
+              <Share2 className="w-5 h-5" />
+              {shareStatus === 'copied' && (
+                <span className="absolute -bottom-7 right-0 px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] whitespace-nowrap shadow-sm">
+                  Lien copié !
+                </span>
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-300 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Content Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-            {/* Image */}
-            <div className="md:col-span-5 relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200 h-64">
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
-                }}
-              />
-              <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded bg-slate-900/80 text-white font-mono text-xs">
-                {product.category}
-              </span>
+            {/* Gallery */}
+            <div className="md:col-span-5 space-y-2">
+              <div className="relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200 h-64">
+                {activeMedia.type === 'video' && videoInfo ? (
+                  videoInfo.type === 'direct' ? (
+                    <video src={videoInfo.embedUrl} controls className="w-full h-full object-contain bg-black" />
+                  ) : (
+                    <iframe
+                      src={videoInfo.embedUrl}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )
+                ) : (
+                  <img
+                    src={images[activeMedia.index] || images[0]}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
+                    }}
+                  />
+                )}
+                <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded bg-slate-900/80 text-white font-mono text-xs">
+                  {product.category}
+                </span>
+                {onSale && (
+                  <span className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-red-600 text-white font-mono font-bold text-xs shadow-md flex items-center gap-1">
+                    <Tag className="w-3 h-3" /> -{product.discountPercent}%
+                  </span>
+                )}
+              </div>
+
+              {/* Thumbnails strip (images + video) */}
+              {(images.length > 1 || videoInfo) && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveMedia({ type: 'image', index: idx })}
+                      className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors ${
+                        activeMedia.type === 'image' && activeMedia.index === idx
+                          ? 'border-amber-500'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <img src={img} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {videoInfo && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveMedia({ type: 'video', index: 0 })}
+                      className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 bg-slate-900 flex items-center justify-center transition-colors ${
+                        activeMedia.type === 'video' ? 'border-amber-500' : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                      title="Voir la vidéo"
+                    >
+                      <PlayCircle className="w-6 h-6 text-white" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Info & Price */}
             <div className="md:col-span-7 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-2xl font-black text-amber-700 font-mono">
-                  {product.priceFcfa.toLocaleString('fr-FR')} <span className="text-sm font-normal text-slate-600">FCFA / unité</span>
-                </span>
+                {onSale ? (
+                  <div>
+                    <span className="block text-sm font-mono text-slate-400 line-through">
+                      {product.priceFcfa.toLocaleString('fr-FR')} FCFA
+                    </span>
+                    <span className="text-2xl font-black text-red-600 font-mono">
+                      {finalPrice.toLocaleString('fr-FR')} <span className="text-sm font-normal text-slate-600">FCFA / unité</span>
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-2xl font-black text-amber-700 font-mono">
+                    {finalPrice.toLocaleString('fr-FR')} <span className="text-sm font-normal text-slate-600">FCFA / unité</span>
+                  </span>
+                )}
                 <span className="px-3 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-xs font-bold">
                   En Stock
                 </span>
@@ -116,7 +223,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </button>
                 </div>
                 <span className="text-xs font-mono text-amber-800 font-semibold">
-                  Sous-total: {(product.priceFcfa * qty).toLocaleString('fr-FR')} FCFA
+                  Sous-total: {(finalPrice * qty).toLocaleString('fr-FR')} FCFA
                 </span>
               </div>
             </div>

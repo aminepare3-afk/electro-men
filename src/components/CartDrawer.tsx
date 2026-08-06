@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { CartItem, PastOrder, Product } from '../types';
+import { getMainImage, getFinalPrice } from '../utils/product';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -40,6 +41,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('Ouagadougou');
   const [neighborhood, setNeighborhood] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<'Livraison à domicile' | 'Retrait en boutique'>('Livraison à domicile');
+  const [orderNotes, setOrderNotes] = useState('');
 
   // Past Orders loaded from LocalStorage
   const [pastOrders, setPastOrders] = useState<PastOrder[]>([]);
@@ -69,7 +72,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const totalFcfa = cart.reduce((sum, item) => sum + item.product.priceFcfa * item.quantity, 0);
+  const totalFcfa = cart.reduce((sum, item) => sum + getFinalPrice(item.product) * item.quantity, 0);
 
   // Save order to LocalStorage history
   const saveOrderToHistory = (orderItems: CartItem[]) => {
@@ -105,23 +108,38 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     // Save order in history before opening WhatsApp
     saveOrderToHistory(cart);
 
+    const orderNumber = 'CMD-' + Math.floor(100000 + Math.random() * 900000);
+    const orderDate = new Date().toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
     let itemsList = cart
-      .map(
-        (item, idx) =>
-          `${idx + 1}. *${item.product.name}* (Ref MPN: ${item.product.mpn})\n   • Qte: ${item.quantity} x ${item.product.priceFcfa.toLocaleString('fr-FR')} FCFA = ${(item.product.priceFcfa * item.quantity).toLocaleString('fr-FR')} FCFA`
-      )
+      .map((item, idx) => {
+        const price = getFinalPrice(item.product);
+        const promoTag = item.product.discountPercent ? ` (Promo -${item.product.discountPercent}%)` : '';
+        return `${idx + 1}. *${item.product.name}*${promoTag}\n   Réf MPN : ${item.product.mpn}\n   Qté : ${item.quantity} x ${price.toLocaleString('fr-FR')} FCFA = *${(price * item.quantity).toLocaleString('fr-FR')} FCFA*`;
+      })
       .join('\n\n');
 
     const msg = encodeURIComponent(
-      `Bonjour ELECTRO MEN (+226 65 48 47 38),\nJe souhaite passer la commande suivante :\n\n` +
-        `📦 *PANIER COMMANDES COMPOSANTS* :\n${itemsList}\n\n` +
-        `💵 *TOTAL COMMANDE* : *${totalFcfa.toLocaleString('fr-FR')} FCFA*\n\n` +
-        `📍 *LIVRAISON BURKINA FASO* :\n` +
+      `Bonjour ELECTRO MEN 👋\n\n` +
+        `Je souhaite passer la commande suivante (Réf. ${orderNumber}) :\n\n` +
+        `🛒 *DÉTAIL DE LA COMMANDE*\n${itemsList}\n\n` +
+        `💵 *TOTAL À PAYER : ${totalFcfa.toLocaleString('fr-FR')} FCFA*\n\n` +
+        `👤 *INFORMATIONS CLIENT*\n` +
         `• Nom : ${customerName || 'Non précisé'}\n` +
-        `• Téléphone/WhatsApp : ${phone || 'Non précisé'}\n` +
+        `• Téléphone/WhatsApp : ${phone || 'Non précisé'}\n\n` +
+        `📍 *LIVRAISON*\n` +
+        `• Mode : ${deliveryMethod}\n` +
         `• Ville : ${city}\n` +
-        `• Quartier / Adresse : ${neighborhood || 'Non précisé'}\n\n` +
-        `Merci de me contacter pour valider le paiement (Orange Money/Moov) et lancer la livraison !`
+        `• Quartier / Adresse : ${neighborhood || 'Non précisé'}\n` +
+        (orderNotes.trim() ? `\n📝 *Instructions spéciales*\n${orderNotes.trim()}\n` : '') +
+        `\n🕐 Commande envoyée le ${orderDate}\n\n` +
+        `Merci de me confirmer la disponibilité, le mode de paiement (Orange Money/Moov Money/Espèces) et le délai de livraison. 🙏`
     );
 
     window.open(`https://wa.me/22665484738?text=${msg}`, '_blank');
@@ -268,13 +286,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
 
                   <div className="space-y-3">
-                    {cart.map((item) => (
+                    {cart.map((item) => {
+                      const price = getFinalPrice(item.product);
+                      const onSale = !!item.product.discountPercent;
+                      return (
                       <div
                         key={item.product.id}
                         className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex gap-3 items-center"
                       >
                         <img
-                          src={item.product.imageUrl}
+                          src={getMainImage(item.product)}
                           alt={item.product.name}
                           className="w-14 h-14 object-cover rounded-lg bg-white border border-slate-200 shrink-0"
                           onError={(e) => {
@@ -286,8 +307,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             MPN: {item.product.mpn}
                           </span>
                           <h4 className="text-xs font-bold text-slate-900 truncate">{item.product.name}</h4>
-                          <div className="text-xs font-mono text-slate-600 mt-1">
-                            {item.product.priceFcfa.toLocaleString('fr-FR')} FCFA
+                          <div className="text-xs font-mono text-slate-600 mt-1 flex items-center gap-1.5">
+                            {onSale && (
+                              <span className="line-through text-slate-400">
+                                {item.product.priceFcfa.toLocaleString('fr-FR')}
+                              </span>
+                            )}
+                            <span className={onSale ? 'text-red-600 font-bold' : ''}>
+                              {price.toLocaleString('fr-FR')} FCFA
+                            </span>
                           </div>
                         </div>
 
@@ -318,7 +346,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Delivery Form */}
@@ -377,6 +406,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:border-amber-500 focus:bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-600 mb-0.5">Mode de Livraison</label>
+                        <select
+                          value={deliveryMethod}
+                          onChange={(e) => setDeliveryMethod(e.target.value as typeof deliveryMethod)}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
+                        >
+                          <option value="Livraison à domicile">Livraison à domicile</option>
+                          <option value="Retrait en boutique">Retrait en boutique</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-600 mb-0.5">Instructions spéciales (optionnel)</label>
+                        <textarea
+                          rows={2}
+                          placeholder="Ex: livrer après 18h, appeler avant..."
+                          value={orderNotes}
+                          onChange={(e) => setOrderNotes(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white resize-none"
                         />
                       </div>
                     </div>
@@ -476,7 +528,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                                       <span className="text-slate-700">{item.product.name}</span>
                                     </div>
                                     <div className="font-mono text-slate-600 whitespace-nowrap">
-                                      x{item.quantity} ({ (item.product.priceFcfa * item.quantity).toLocaleString('fr-FR') } FCFA)
+                                      x{item.quantity} ({ (getFinalPrice(item.product) * item.quantity).toLocaleString('fr-FR') } FCFA)
                                     </div>
                                   </div>
                                 ))}
