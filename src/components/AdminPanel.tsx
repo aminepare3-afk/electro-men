@@ -40,6 +40,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newImages, setNewImages] = useState<string[]>([]);
   const [newImageUrlInput, setNewImageUrlInput] = useState('');
   const [newVideoUrl, setNewVideoUrl] = useState('');
+  const [newIsPopular, setNewIsPopular] = useState(false);
   const [specKey, setSpecKey] = useState('');
   const [specValue, setSpecValue] = useState('');
   const [specsList, setSpecsList] = useState<Record<string, string>>({});
@@ -134,6 +135,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           ? newImages
           : ['https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80'],
       videoUrl: newVideoUrl.trim() || undefined,
+      isPopular: newIsPopular,
       createdAt: new Date().toISOString(),
     };
 
@@ -167,6 +169,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         : []
     );
     setNewVideoUrl(product.videoUrl || '');
+    setNewIsPopular(!!product.isPopular);
     setSpecsList(product.specifications || {});
     setActiveTab('add');
   };
@@ -185,6 +188,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewImages([]);
     setNewImageUrlInput('');
     setNewVideoUrl('');
+    setNewIsPopular(false);
     setSpecsList({});
   };
 
@@ -378,7 +382,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </div>
                       </td>
                       <td className="p-3 font-mono font-bold text-amber-700">{p.mpn}</td>
-                      <td className="p-3 font-semibold text-slate-900 max-w-xs truncate">{p.name}</td>
+                      <td className="p-3 font-semibold text-slate-900 max-w-xs truncate">
+                        {p.isPopular && <span className="mr-1" title="Produit Vedette">⭐</span>}
+                        {p.name}
+                      </td>
                       <td className="p-3 text-slate-600 font-mono">{p.category}</td>
                       <td className="p-3 font-mono font-bold text-emerald-700">
                         {p.priceFcfa.toLocaleString('fr-FR')} FCFA
@@ -469,7 +476,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
             <div>
               <label className="block text-xs font-mono uppercase text-slate-700 mb-1">Prix Unitaire (FCFA)</label>
               <input
@@ -498,6 +505,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   Prix promo : {Math.round(newPrice * (1 - parseInt(newDiscountPercent, 10) / 100)).toLocaleString('fr-FR')} FCFA
                 </p>
               )}
+            </div>
+
+            <div className="flex flex-col justify-end">
+              <label className="flex items-center gap-2.5 px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer h-[42px]">
+                <input
+                  type="checkbox"
+                  checked={newIsPopular}
+                  onChange={(e) => setNewIsPopular(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500"
+                />
+                <span className="text-xs font-mono font-bold text-amber-900">⭐ Produit Vedette</span>
+              </label>
             </div>
 
             <div>

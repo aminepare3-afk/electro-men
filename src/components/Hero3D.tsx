@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import React from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, ShoppingBag, Send, ShieldCheck, Zap, Cpu, Search } from 'lucide-react';
+import { Sparkles, ShoppingBag, Send, ShieldCheck, Zap, Cpu, Search, Tag, Star, ArrowRight } from 'lucide-react';
+import { Product } from '../types';
+import { getMainImage, getFinalPrice, hasDiscount } from '../utils/product';
 
 interface Hero3DProps {
   onOpenSourcingModal: () => void;
@@ -9,194 +10,21 @@ interface Hero3DProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSearchSubmit: () => void;
+  featuredProducts: Product[];
+  onSelectProduct: (product: Product) => void;
 }
 
-export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreClick, searchQuery, onSearchChange, onSearchSubmit }) => {
-  const mountRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!mountRef.current) return;
-
-    // Set up Three.js Scene for 3D Microchip Motion
-    const width = mountRef.current.clientWidth;
-    const height = mountRef.current.clientHeight;
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 7);
-
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mountRef.current.appendChild(renderer.domElement);
-
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambientLight);
-
-    const goldPointLight = new THREE.PointLight(0xd4af37, 3, 20);
-    goldPointLight.position.set(5, 5, 5);
-    scene.add(goldPointLight);
-
-    const cyanPointLight = new THREE.PointLight(0x00f0ff, 2.5, 20);
-    cyanPointLight.position.set(-5, -5, 3);
-    scene.add(cyanPointLight);
-
-    // Main 3D IC Chip Group
-    const chipGroup = new THREE.Group();
-
-    // Chip Main Body
-    const bodyGeometry = new THREE.BoxGeometry(2.4, 2.4, 0.35);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0x111827,
-      metalness: 0.9,
-      roughness: 0.2,
-    });
-    const chipBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    chipGroup.add(chipBody);
-
-    // Silicon Die / Gold Core Center Emblem
-    const coreGeometry = new THREE.BoxGeometry(1.0, 1.0, 0.37);
-    const coreMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd4af37,
-      metalness: 0.95,
-      roughness: 0.1,
-      emissive: 0x332200,
-    });
-    const chipCore = new THREE.Mesh(coreGeometry, coreMaterial);
-    chipGroup.add(chipCore);
-
-    // Gold Pins along 4 sides
-    const pinGeometry = new THREE.BoxGeometry(0.12, 0.5, 0.08);
-    const pinMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffd700,
-      metalness: 1.0,
-      roughness: 0.1,
-    });
-
-    const sidePins = 6;
-    const pinSpacing = 0.35;
-    const offsetStart = -((sidePins - 1) * pinSpacing) / 2;
-
-    for (let i = 0; i < sidePins; i++) {
-      const pos = offsetStart + i * pinSpacing;
-
-      // Top Pins
-      const pinTop = new THREE.Mesh(pinGeometry, pinMaterial);
-      pinTop.position.set(pos, 1.45, 0);
-      chipGroup.add(pinTop);
-
-      // Bottom Pins
-      const pinBottom = new THREE.Mesh(pinGeometry, pinMaterial);
-      pinBottom.position.set(pos, -1.45, 0);
-      chipGroup.add(pinBottom);
-
-      // Left Pins
-      const pinLeft = new THREE.Mesh(pinGeometry, pinMaterial);
-      pinLeft.rotation.z = Math.PI / 2;
-      pinLeft.position.set(-1.45, pos, 0);
-      chipGroup.add(pinLeft);
-
-      // Right Pins
-      const pinRight = new THREE.Mesh(pinGeometry, pinMaterial);
-      pinRight.rotation.z = Math.PI / 2;
-      pinRight.position.set(1.45, pos, 0);
-      chipGroup.add(pinRight);
-    }
-
-    scene.add(chipGroup);
-
-    // Glowing Particle Field (Circuit Electrons)
-    const particleCount = 180;
-    const particlesGeometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      positions[i] = (Math.random() - 0.5) * 12;
-      positions[i + 1] = (Math.random() - 0.5) * 12;
-      positions[i + 2] = (Math.random() - 0.5) * 8;
-
-      // Mix Gold & Cyan Particle Colors
-      if (Math.random() > 0.5) {
-        colors[i] = 0.83; // R
-        colors[i + 1] = 0.68; // G
-        colors[i + 2] = 0.21; // B
-      } else {
-        colors[i] = 0.0;
-        colors[i + 1] = 0.94;
-        colors[i + 2] = 1.0;
-      }
-    }
-
-    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const particlesMaterial = new THREE.PointsMaterial({
-      size: 0.08,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.85,
-    });
-
-    const particleSystem = new THREE.Points(particlesGeometry, particlesMaterial);
-    scene.add(particleSystem);
-
-    // Mouse tilt interaction
-    let mouseX = 0;
-    let mouseY = 0;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = mountRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-
-    // Animation Loop
-    let animationFrameId: number;
-    let clock = new THREE.Clock();
-
-    const animate = () => {
-      const elapsedTime = clock.getElapsedTime();
-
-      // Continuous 3D rotation
-      chipGroup.rotation.y = elapsedTime * 0.4 + mouseX * 0.5;
-      chipGroup.rotation.x = Math.sin(elapsedTime * 0.3) * 0.2 + mouseY * 0.5;
-      chipGroup.position.y = Math.sin(elapsedTime * 1.2) * 0.15;
-
-      particleSystem.rotation.y = elapsedTime * 0.05;
-
-      renderer.render(scene, camera);
-      animationFrameId = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    // Resize Handler
-    const handleResize = () => {
-      if (!mountRef.current) return;
-      const w = mountRef.current.clientWidth;
-      const h = mountRef.current.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameId);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
-  }, []);
+export const Hero3D: React.FC<Hero3DProps> = ({
+  onOpenSourcingModal,
+  onExploreClick,
+  searchQuery,
+  onSearchChange,
+  onSearchSubmit,
+  featuredProducts,
+  onSelectProduct,
+}) => {
+  const mainFeatured = featuredProducts[0];
+  const otherFeatured = featuredProducts.slice(1, 3);
 
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-amber-50/60 via-slate-50 to-white text-slate-900 border-b border-slate-200 py-12 px-4 sm:px-6 lg:px-8">
@@ -208,7 +36,7 @@ export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreCl
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center z-10">
-        
+
         {/* Left Column: Headline & Action Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -313,30 +141,107 @@ export const Hero3D: React.FC<Hero3DProps> = ({ onOpenSourcingModal, onExploreCl
           </div>
         </motion.div>
 
-        {/* Right Column: Interactive 3D Canvas Viewport */}
+        {/* Right Column: Featured / Promo Products Showcase */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.2 }}
-          className="lg:col-span-5 relative h-[380px] sm:h-[460px] w-full flex items-center justify-center"
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="lg:col-span-5 relative w-full"
         >
-          {/* Three.js Mounting Element */}
-          <div ref={mountRef} className="w-full h-full absolute inset-0 cursor-grab active:cursor-grabbing" />
-
-          {/* Floating Glass Specs Badge Overlay */}
-          <div className="absolute bottom-4 left-4 right-4 p-3.5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 flex items-center justify-between shadow-lg pointer-events-none">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
-              <div>
-                <div className="text-xs font-mono text-amber-800 font-bold">MODELE 3D INTERACTIF</div>
-                <div className="text-xs text-slate-700 font-medium">Puce Microcontrôleur High-Frequency</div>
+          {mainFeatured ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <span className="text-xs font-mono uppercase tracking-wider text-slate-600 font-bold">
+                  Produits Vedette & Promotions
+                </span>
               </div>
+
+              {/* Main Featured Card */}
+              <button
+                onClick={() => onSelectProduct(mainFeatured)}
+                className="group relative w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              >
+                <div className="relative h-56 sm:h-64 w-full bg-slate-100 overflow-hidden">
+                  <img
+                    src={getMainImage(mainFeatured)}
+                    alt={mainFeatured.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  {hasDiscount(mainFeatured) ? (
+                    <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-red-600 text-white font-mono font-bold text-xs shadow-md flex items-center gap-1">
+                      <Tag className="w-3.5 h-3.5" /> -{mainFeatured.discountPercent}% PROMO
+                    </span>
+                  ) : (
+                    <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 font-mono font-bold text-xs shadow-md flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 fill-slate-950" /> VEDETTE
+                    </span>
+                  )}
+                  <span className="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-slate-900/80 text-white font-mono text-[10px] backdrop-blur-md">
+                    {mainFeatured.category}
+                  </span>
+                </div>
+                <div className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-900 truncate">{mainFeatured.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      {hasDiscount(mainFeatured) && (
+                        <span className="text-xs font-mono text-slate-400 line-through">
+                          {mainFeatured.priceFcfa.toLocaleString('fr-FR')}
+                        </span>
+                      )}
+                      <span className={`text-base font-black font-mono ${hasDiscount(mainFeatured) ? 'text-red-600' : 'text-amber-700'}`}>
+                        {getFinalPrice(mainFeatured).toLocaleString('fr-FR')} FCFA
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all shrink-0" />
+                </div>
+              </button>
+
+              {/* Secondary Featured Items */}
+              {otherFeatured.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {otherFeatured.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => onSelectProduct(p)}
+                      className="group relative text-left rounded-xl overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all"
+                    >
+                      <div className="relative h-24 w-full bg-slate-100 overflow-hidden">
+                        <img
+                          src={getMainImage(p)}
+                          alt={p.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        {hasDiscount(p) && (
+                          <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-red-600 text-white font-mono font-bold text-[10px]">
+                            -{p.discountPercent}%
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-2">
+                        <h4 className="text-[11px] font-bold text-slate-900 truncate">{p.name}</h4>
+                        <span className={`text-xs font-mono font-bold ${hasDiscount(p) ? 'text-red-600' : 'text-amber-700'}`}>
+                          {getFinalPrice(p).toLocaleString('fr-FR')} FCFA
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="text-right">
-              <div className="text-xs text-cyan-700 font-mono font-bold">BURKINA FASO</div>
-              <div className="text-[11px] text-slate-500">Livraison Express</div>
+          ) : (
+            /* Empty state placeholder while no product is marked as featured/promo yet */
+            <div className="relative h-[380px] sm:h-[460px] w-full rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 flex flex-col items-center justify-center text-center p-8 shadow-xl overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(#d4af37_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none"></div>
+              <Star className="w-12 h-12 text-amber-400 mb-4" />
+              <h3 className="text-white font-bold font-mono uppercase text-sm mb-2">Aucun Produit Vedette pour le moment</h3>
+              <p className="text-slate-400 text-xs max-w-xs">
+                Marquez un composant comme "Produit Vedette" ou ajoutez une promotion depuis l'administration pour le mettre en avant ici.
+              </p>
             </div>
-          </div>
+          )}
         </motion.div>
 
       </div>

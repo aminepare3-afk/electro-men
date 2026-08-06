@@ -296,6 +296,17 @@ export default function App() {
     return matchesCategory && matchesQuery;
   });
 
+  // Featured products for the Hero showcase: promotions first, then "vedette" items, most recent first
+  const featuredProducts = [...products]
+    .filter((p) => p.isPopular || (p.discountPercent && p.discountPercent > 0))
+    .sort((a, b) => {
+      const aPromo = a.discountPercent && a.discountPercent > 0 ? 1 : 0;
+      const bPromo = b.discountPercent && b.discountPercent > 0 ? 1 : 0;
+      if (aPromo !== bPromo) return bPromo - aPromo;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })
+    .slice(0, 3);
+
   // Handle Search Input (triggers admin mode if 'admin' or '/admin' is typed)
   const handleSearchChange = (query: string) => {
     const clean = query.trim().toLowerCase();
@@ -404,6 +415,8 @@ export default function App() {
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         onSearchSubmit={scrollToCatalog}
+        featuredProducts={featuredProducts}
+        onSelectProduct={(p) => setSelectedProduct(p)}
       />
 
       {/* Main Catalogue Grid Section */}
