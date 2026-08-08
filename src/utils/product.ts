@@ -17,6 +17,12 @@ export function getMainImage(product: Product): string {
   return getImages(product)[0];
 }
 
+/** Retourne la miniature légère du produit (pour grilles/cartes), avec repli sur l'image pleine résolution. */
+export function getThumbnail(product: Product): string {
+  if (product.thumbnails && product.thumbnails.length > 0) return product.thumbnails[0];
+  return getMainImage(product);
+}
+
 /** true si le produit a une promotion active. */
 export function hasDiscount(product: Product): boolean {
   return !!product.discountPercent && product.discountPercent > 0 && product.discountPercent < 100;

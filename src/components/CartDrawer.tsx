@@ -15,7 +15,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { CartItem, PastOrder, Product } from '../types';
-import { getMainImage, getFinalPrice } from '../utils/product';
+import { getThumbnail, getFinalPrice } from '../utils/product';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -295,7 +295,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex gap-3 items-center"
                       >
                         <img
-                          src={getMainImage(item.product)}
+                          src={getThumbnail(item.product)}
                           alt={item.product.name}
                           loading="lazy"
                           decoding="async"

@@ -47,12 +47,23 @@ export default defineConfig(() => {
           navigateFallbackDenylist: [/\/api\//],
           runtimeCaching: [
             {
+              // Affiche instantanément la version en cache pendant que la nouvelle est récupérée en fond —
+              // idéal pour quelqu'un de pressé sur une connexion lente.
               urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/api/products'),
-              handler: 'NetworkFirst',
+              handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'products-cache',
-                networkTimeoutSeconds: 5,
                 expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 },
+              },
+            },
+            {
+              // Photos produits hébergées sur Supabase Storage : rarement modifiées une fois publiées,
+              // donc on les garde en cache longue durée pour un chargement instantané au retour.
+              urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/storage/v1/object/public/'),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'product-images-cache',
+                expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
               },
             },
           ],

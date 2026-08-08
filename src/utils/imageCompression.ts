@@ -32,3 +32,18 @@ export function compressImage(file: File, maxWidth = 1000, quality = 0.75): Prom
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * Génère à la fois une image "pleine résolution" (pour la fiche produit)
+ * et une miniature très légère (pour les grilles/cartes/carrousel),
+ * afin que la page catalogue ne télécharge jamais plus que nécessaire.
+ */
+export async function compressImageWithThumbnail(
+  file: File
+): Promise<{ full: string; thumbnail: string }> {
+  const [full, thumbnail] = await Promise.all([
+    compressImage(file, 1000, 0.75),
+    compressImage(file, 320, 0.6),
+  ]);
+  return { full, thumbnail };
+}

@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform, useSpring } from 'motion/react';
 import { ShoppingCart, ExternalLink, Send, CheckCircle2, Clock, AlertTriangle, FileText, Cpu, ArrowRightLeft, Share2, Images, Tag } from 'lucide-react';
 import { Product } from '../types';
-import { getMainImage, getFinalPrice, hasDiscount } from '../utils/product';
+import { getThumbnail, getFinalPrice, hasDiscount } from '../utils/product';
 import { shareContent } from '../utils/share';
 
 interface ProductCardProps {
@@ -120,7 +120,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           style={{ transform: 'translateZ(15px)', transformStyle: 'preserve-3d' }}
         >
           <img
-            src={getMainImage(product)}
+            src={getThumbnail(product)}
             alt={product.name}
             loading="lazy"
             decoding="async"

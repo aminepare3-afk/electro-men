@@ -3,7 +3,7 @@ import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckC
 import { Product, StockStatus, CustomSourcingRequest } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
-import { compressImage } from '../utils/imageCompression';
+import { compressImageWithThumbnail } from '../utils/imageCompression';
 
 interface AdminPanelProps {
   products: Product[];
@@ -39,6 +39,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newDescription, setNewDescription] = useState('');
   const [newDatasheet, setNewDatasheet] = useState('');
   const [newImages, setNewImages] = useState<string[]>([]);
+  const [newThumbnails, setNewThumbnails] = useState<string[]>([]);
   const [newImageUrlInput, setNewImageUrlInput] = useState('');
   const [newVideoUrl, setNewVideoUrl] = useState('');
   const [newIsPopular, setNewIsPopular] = useState(false);
@@ -101,9 +102,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     setCompressingImages(true);
     try {
-      const compressed = await Promise.all(filesToAdd.map((file) => compressImage(file, 1000, 0.75)));
-      const uploadedUrls = await Promise.all(compressed.map((dataUrl) => uploadCompressedImage(dataUrl)));
-      setNewImages((prev) => [...prev, ...uploadedUrls].slice(0, MAX_IMAGES));
+      const pairs = await Promise.all(filesToAdd.map((file) => compressImageWithThumbnail(file)));
+      const uploaded = await Promise.all(
+        pairs.map(async ({ full, thumbnail }) => {
+          const [fullUrl, thumbUrl] = await Promise.all([
+            uploadCompressedImage(full),
+            uploadCompressedImage(thumbnail),
+          ]);
+          return { fullUrl, thumbUrl };
+        })
+      );
+      setNewImages((prev) => [...prev, ...uploaded.map((u) => u.fullUrl)].slice(0, MAX_IMAGES));
+      setNewThumbnails((prev) => [...prev, ...uploaded.map((u) => u.thumbUrl)].slice(0, MAX_IMAGES));
     } catch (err) {
       console.error('Erreur compression image:', err);
     } finally {
@@ -115,11 +125,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const url = newImageUrlInput.trim();
     if (!url || newImages.length >= MAX_IMAGES) return;
     setNewImages((prev) => [...prev, url]);
+    setNewThumbnails((prev) => [...prev, url]); // pas de recompression possible pour une URL externe
     setNewImageUrlInput('');
   };
 
   const handleRemoveImage = (index: number) => {
     setNewImages((prev) => prev.filter((_, i) => i !== index));
+    setNewThumbnails((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAddSpec = () => {
@@ -159,6 +171,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         newImages.length > 0
           ? newImages
           : ['https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80'],
+      thumbnails: newThumbnails.length === newImages.length ? newThumbnails : undefined,
       videoUrl: newVideoUrl.trim() || undefined,
       isPopular: newIsPopular,
       createdAt: new Date().toISOString(),
@@ -193,6 +206,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         ? [(product as any).imageUrl]
         : []
     );
+    setNewThumbnails(product.thumbnails && product.thumbnails.length > 0 ? product.thumbnails : product.images || []);
     setNewVideoUrl(product.videoUrl || '');
     setNewIsPopular(!!product.isPopular);
     setSpecsList(product.specifications || {});
@@ -211,6 +225,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewDescription('');
     setNewDatasheet('');
     setNewImages([]);
+    setNewThumbnails([]);
     setNewImageUrlInput('');
     setNewVideoUrl('');
     setNewIsPopular(false);

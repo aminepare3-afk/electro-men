@@ -12,7 +12,8 @@ export interface Product {
   description: string;
   specifications: Record<string, string>;
   datasheetUrl?: string;
-  images: string[]; // 1 à 6+ photos
+  images: string[]; // 1 à 6+ photos (pleine résolution, pour la fiche produit)
+  thumbnails?: string[]; // versions légères des mêmes photos, pour les grilles/cartes
   videoUrl?: string; // Vidéo de présentation optionnelle (lien direct ou YouTube/Vimeo)
   isPopular?: boolean;
   createdAt: string;
