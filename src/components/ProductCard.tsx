@@ -122,6 +122,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <img
             src={getMainImage(product)}
             alt={product.name}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
             onError={(e) => {
               (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');

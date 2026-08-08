@@ -455,7 +455,20 @@ export default function App() {
         </div>
 
         {/* Product Grid */}
-        {filteredProducts.length === 0 ? (
+        {productsLoading && filteredProducts.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-sm animate-pulse">
+                <div className="h-44 bg-slate-200" />
+                <div className="p-4 space-y-2">
+                  <div className="h-3 w-1/2 bg-slate-200 rounded" />
+                  <div className="h-3 w-3/4 bg-slate-200 rounded" />
+                  <div className="h-5 w-1/3 bg-slate-200 rounded mt-3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 font-mono space-y-4 shadow-sm">
             <Cpu className="w-16 h-16 text-slate-400 mx-auto" />
             <h3 className="text-lg font-bold text-slate-900">

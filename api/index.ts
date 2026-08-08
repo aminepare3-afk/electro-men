@@ -21,6 +21,26 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
   }
 }
 
+const STORAGE_BUCKET = "product-images";
+let bucketEnsured = false;
+
+async function ensureStorageBucket(): Promise<void> {
+  if (!supabase || bucketEnsured) return;
+  try {
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const exists = (buckets || []).some((b) => b.name === STORAGE_BUCKET);
+    if (!exists) {
+      await supabase.storage.createBucket(STORAGE_BUCKET, {
+        public: true,
+        fileSizeLimit: "5MB",
+      });
+    }
+    bucketEnsured = true;
+  } catch (e) {
+    console.error("[Storage Bucket Init]", e);
+  }
+}
+
 function requireAdmin(req: express.Request, res: express.Response): boolean {
   if (req.body?.adminPassword !== ADMIN_PASSWORD) {
     res.status(401).json({ success: false, error: "Mot de passe administrateur incorrect." });
@@ -52,7 +72,7 @@ app.post("/api/admin-login", (req: express.Request, res: express.Response) => {
   return res.status(401).json({ success: false });
 });
 
-// GET all products (public read)
+// GET all products (public read) — cached at the CDN edge for fast repeat loads
 app.get("/api/products", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
   if (!requireDb(res)) return;
@@ -64,10 +84,51 @@ app.get("/api/products", async (req: express.Request, res: express.Response) => 
     if (error) {
       return res.status(500).json({ success: false, error: error.message, data: [] });
     }
+    // Edge/browser cache: fast for someone in a hurry, still refreshes quickly after a change
+    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=30, stale-while-revalidate=300");
     return res.status(200).json({ success: true, data: (data || []).map((row: any) => row.data) });
   } catch (e: any) {
     console.error("[GET /api/products]", e);
     return res.status(500).json({ success: false, error: e?.message || "Erreur serveur.", data: [] });
+  }
+});
+
+// Upload a compressed image to Supabase Storage (admin only) — returns a lightweight public URL
+// instead of storing the full base64 blob inline in the products table (which slows every catalogue load).
+app.post("/api/upload-image", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+
+  const imageBase64: string | undefined = req.body?.imageBase64;
+  if (!imageBase64 || !imageBase64.startsWith("data:image/")) {
+    return res.status(400).json({ success: false, error: "Image invalide." });
+  }
+
+  try {
+    await ensureStorageBucket();
+
+    const matches = imageBase64.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(400).json({ success: false, error: "Format d'image invalide." });
+    }
+    const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
+    const buffer = Buffer.from(matches[2], "base64");
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+
+    const { error: uploadError } = await supabase!.storage
+      .from(STORAGE_BUCKET)
+      .upload(fileName, buffer, { contentType: `image/${matches[1]}`, upsert: false });
+
+    if (uploadError) {
+      return res.status(500).json({ success: false, error: uploadError.message });
+    }
+
+    const { data: publicUrlData } = supabase!.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+    return res.status(200).json({ success: true, url: publicUrlData.publicUrl });
+  } catch (e: any) {
+    console.error("[POST /api/upload-image]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
   }
 });
 

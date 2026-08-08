@@ -74,6 +74,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const [compressingImages, setCompressingImages] = useState(false);
 
+  const uploadCompressedImage = async (dataUrl: string): Promise<string> => {
+    try {
+      const res = await fetch('/api/upload-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: dataUrl, adminPassword: passwordInput }),
+      });
+      const json = await res.json();
+      if (json.success && json.url) {
+        return json.url as string;
+      }
+    } catch (err) {
+      console.error('Erreur upload image vers le stockage:', err);
+    }
+    // Repli : si l'upload échoue, on garde l'image compressée en local (moins optimal mais ne bloque pas l'admin)
+    return dataUrl;
+  };
+
   const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -84,7 +102,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setCompressingImages(true);
     try {
       const compressed = await Promise.all(filesToAdd.map((file) => compressImage(file, 1000, 0.75)));
-      setNewImages((prev) => [...prev, ...compressed].slice(0, MAX_IMAGES));
+      const uploadedUrls = await Promise.all(compressed.map((dataUrl) => uploadCompressedImage(dataUrl)));
+      setNewImages((prev) => [...prev, ...uploadedUrls].slice(0, MAX_IMAGES));
     } catch (err) {
       console.error('Erreur compression image:', err);
     } finally {
@@ -378,6 +397,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <img
                             src={getMainImage(p)}
                             alt={p.name}
+                            loading="lazy"
+                            decoding="async"
                             className="w-10 h-10 object-cover rounded-lg bg-slate-100 border border-slate-200"
                           />
                           {p.images && p.images.length > 1 && (
@@ -584,7 +605,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                 <label className={`px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl cursor-pointer text-xs font-mono text-slate-800 flex items-center gap-2 ${compressingImages ? 'opacity-60 pointer-events-none' : ''}`}>
                   <Upload className="w-4 h-4 text-amber-600" />
-                  <span>{compressingImages ? 'Compression en cours...' : 'Téléverser une/des image(s)...'}</span>
+                  <span>{compressingImages ? 'Traitement des images...' : 'Téléverser une/des image(s)...'}</span>
                   <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageFileUpload} disabled={compressingImages} />
                 </label>
 

@@ -196,6 +196,8 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           <img
                             src={getMainImage(prod1)}
                             alt={prod1.name}
+                            loading="lazy"
+                            decoding="async"
                             className="w-20 h-20 object-cover rounded-lg border border-slate-200 bg-white flex-shrink-0"
                             onError={(e) => {
                               (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
@@ -257,6 +259,8 @@ export const CompareModal: React.FC<CompareModalProps> = ({
                           <img
                             src={getMainImage(prod2)}
                             alt={prod2.name}
+                            loading="lazy"
+                            decoding="async"
                             className="w-20 h-20 object-cover rounded-lg border border-slate-200 bg-white flex-shrink-0"
                             onError={(e) => {
                               (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');

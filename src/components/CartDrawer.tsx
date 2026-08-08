@@ -297,6 +297,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <img
                           src={getMainImage(item.product)}
                           alt={item.product.name}
+                          loading="lazy"
+                          decoding="async"
                           className="w-14 h-14 object-cover rounded-lg bg-white border border-slate-200 shrink-0"
                           onError={(e) => {
                             (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
