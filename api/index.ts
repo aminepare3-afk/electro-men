@@ -132,6 +132,40 @@ app.post("/api/upload-image", async (req: express.Request, res: express.Response
   }
 });
 
+// BULK IMPORT products (admin only) — upsert en une seule requête (CSV/Excel import)
+app.post("/api/products/bulk-import", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+
+  const products = req.body?.products;
+  if (!Array.isArray(products) || products.length === 0) {
+    return res.status(400).json({ success: false, error: "Aucun produit à importer." });
+  }
+  if (products.length > 500) {
+    return res.status(400).json({ success: false, error: "Trop de produits en une seule fois (500 maximum)." });
+  }
+
+  try {
+    const rows = products
+      .filter((p: any) => p && p.id && p.name && p.mpn)
+      .map((p: any) => ({ id: p.id, data: p }));
+
+    if (rows.length === 0) {
+      return res.status(400).json({ success: false, error: "Aucun produit valide à importer." });
+    }
+
+    const { error } = await supabase!.from("products").upsert(rows, { onConflict: "id" });
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.status(200).json({ success: true, imported: rows.length });
+  } catch (e: any) {
+    console.error("[POST /api/products/bulk-import]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
 // CREATE product (admin only)
 app.post("/api/products", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");

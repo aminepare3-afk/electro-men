@@ -274,6 +274,27 @@ export default function App() {
     }
   };
 
+  const handleBulkImportProducts = async (
+    importedProducts: Product[],
+    adminPassword: string
+  ): Promise<{ success: boolean; error?: string; imported?: number }> => {
+    try {
+      const res = await fetch('/api/products/bulk-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: importedProducts, adminPassword }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchProducts();
+        return { success: true, imported: json.imported };
+      }
+      return { success: false, error: json.error || "Erreur lors de l'import." };
+    } catch (e) {
+      return { success: false, error: 'Impossible de contacter le serveur. Vérifiez votre connexion.' };
+    }
+  };
+
   const handleLoadDemoProducts = () => {
     setProducts(DEMO_SAMPLE_PRODUCTS);
   };
@@ -386,6 +407,7 @@ export default function App() {
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
             onClearAllProducts={handleClearAllProducts}
+            onBulkImportProducts={handleBulkImportProducts}
             onClose={handleCloseAdmin}
           />
         </main>
