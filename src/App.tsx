@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero3D } from './components/Hero3D';
 import { ProductCard } from './components/ProductCard';
@@ -306,31 +306,35 @@ export default function App() {
   };
 
   // Filtered Products Calculation
-  const filteredProducts = products.filter((p) => {
-    const matchesCategory =
-      selectedCategory === 'Toutes les catégories' || p.category === selectedCategory;
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchesCategory =
+        selectedCategory === 'Toutes les catégories' || p.category === selectedCategory;
 
-    const cleanQuery = searchQuery.trim().toLowerCase();
-    const matchesQuery =
-      !cleanQuery ||
-      p.name.toLowerCase().includes(cleanQuery) ||
-      p.mpn.toLowerCase().includes(cleanQuery) ||
-      p.category.toLowerCase().includes(cleanQuery) ||
-      p.description.toLowerCase().includes(cleanQuery);
+      const cleanQuery = searchQuery.trim().toLowerCase();
+      const matchesQuery =
+        !cleanQuery ||
+        p.name.toLowerCase().includes(cleanQuery) ||
+        p.mpn.toLowerCase().includes(cleanQuery) ||
+        p.category.toLowerCase().includes(cleanQuery) ||
+        p.description.toLowerCase().includes(cleanQuery);
 
-    return matchesCategory && matchesQuery;
-  });
+      return matchesCategory && matchesQuery;
+    });
+  }, [products, selectedCategory, searchQuery]);
 
   // Featured products for the Hero showcase: promotions first, then "vedette" items, most recent first
-  const featuredProducts = [...products]
-    .filter((p) => p.isPopular || (p.discountPercent && p.discountPercent > 0))
-    .sort((a, b) => {
-      const aPromo = a.discountPercent && a.discountPercent > 0 ? 1 : 0;
-      const bPromo = b.discountPercent && b.discountPercent > 0 ? 1 : 0;
-      if (aPromo !== bPromo) return bPromo - aPromo;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    })
-    .slice(0, 6);
+  const featuredProducts = useMemo(() => {
+    return [...products]
+      .filter((p) => p.isPopular || (p.discountPercent && p.discountPercent > 0))
+      .sort((a, b) => {
+        const aPromo = a.discountPercent && a.discountPercent > 0 ? 1 : 0;
+        const bPromo = b.discountPercent && b.discountPercent > 0 ? 1 : 0;
+        if (aPromo !== bPromo) return bPromo - aPromo;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      })
+      .slice(0, 6);
+  }, [products]);
 
   // Handle Search Input (triggers admin mode if 'admin' or '/admin' is typed)
   const handleSearchChange = (query: string) => {
