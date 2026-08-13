@@ -42,7 +42,8 @@ async function ensureStorageBucket(): Promise<void> {
 }
 
 function requireAdmin(req: express.Request, res: express.Response): boolean {
-  if (req.body?.adminPassword !== ADMIN_PASSWORD) {
+  const provided = req.body?.adminPassword || req.headers["x-admin-password"];
+  if (provided !== ADMIN_PASSWORD) {
     res.status(401).json({ success: false, error: "Mot de passe administrateur incorrect." });
     return false;
   }
@@ -230,6 +231,114 @@ app.delete("/api/products", async (req: express.Request, res: express.Response) 
     return res.status(200).json({ success: true });
   } catch (e: any) {
     console.error("[DELETE /api/products]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+// CREATE order (public — placed by customers at checkout, no admin password needed)
+app.post("/api/orders", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+
+  const order = req.body?.order;
+  if (!order || !Array.isArray(order.items) || order.items.length === 0) {
+    return res.status(400).json({ success: false, error: "Commande invalide (panier vide)." });
+  }
+  if (!order.customerName || !order.phone) {
+    return res.status(400).json({ success: false, error: "Nom et téléphone requis." });
+  }
+
+  try {
+    const id = `order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const orderNumber = `CMD-${Math.floor(100000 + Math.random() * 900000)}`;
+    const record = {
+      ...order,
+      id,
+      orderNumber,
+      status: "new",
+      createdAt: new Date().toISOString(),
+    };
+
+    const { error } = await supabase!.from("orders").insert({ id, data: record });
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.status(200).json({ success: true, id, orderNumber });
+  } catch (e: any) {
+    console.error("[POST /api/orders]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+// LIST orders (admin only — private customer data)
+app.get("/api/orders", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  try {
+    const { data, error } = await supabase!
+      .from("orders")
+      .select("data")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, data: [] });
+    }
+    return res.status(200).json({ success: true, data: (data || []).map((row: any) => row.data) });
+  } catch (e: any) {
+    console.error("[GET /api/orders]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur.", data: [] });
+  }
+});
+
+// UPDATE order — status change or contact info added later (admin only)
+app.patch("/api/orders", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { id, updates } = req.body || {};
+  if (!id || !updates) {
+    return res.status(400).json({ success: false, error: "Requête invalide." });
+  }
+  try {
+    const { data: existing, error: fetchError } = await supabase!.from("orders").select("data").eq("id", id).single();
+    if (fetchError || !existing) {
+      return res.status(404).json({ success: false, error: "Commande introuvable." });
+    }
+    const merged = { ...existing.data, ...updates };
+    const { error } = await supabase!.from("orders").update({ data: merged }).eq("id", id);
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    console.error("[PATCH /api/orders]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+// Adds contact info (email) to an order after checkout — public, but scoped to one order ID the
+// customer already received, so it cannot be used to browse or edit other people's orders.
+app.post("/api/orders/contact", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const { id, email } = req.body || {};
+  if (!id || !email) {
+    return res.status(400).json({ success: false, error: "Email requis." });
+  }
+  try {
+    const { data: existing, error: fetchError } = await supabase!.from("orders").select("data").eq("id", id).single();
+    if (fetchError || !existing) {
+      return res.status(404).json({ success: false, error: "Commande introuvable." });
+    }
+    const merged = { ...existing.data, email };
+    const { error } = await supabase!.from("orders").update({ data: merged }).eq("id", id);
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    console.error("[POST /api/orders/contact]", e);
     return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
   }
 });

@@ -478,7 +478,7 @@ export default function App() {
 
         {/* Product Grid */}
         {productsLoading && filteredProducts.length === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-sm animate-pulse">
                 <div className="h-44 bg-slate-200" />
@@ -519,7 +519,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -527,8 +527,11 @@ export default function App() {
                 isCompared={compareProducts.some((p) => p.id === product.id)}
                 onToggleCompare={handleToggleCompare}
                 onAddToCart={(p) => handleAddToCart(p, 1)}
+                onOrderNow={(p) => {
+                  handleAddToCart(p, 1);
+                  setIsCartOpen(true);
+                }}
                 onSelectProduct={(p) => setSelectedProduct(p)}
-                onOpenSourcingForMpn={handleOpenSourcingForMpn}
               />
             ))}
           </div>
@@ -605,6 +608,10 @@ export default function App() {
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
         onAddToCart={handleAddToCart}
+        onOrderNow={(p, qty) => {
+          handleAddToCart(p, qty);
+          setIsCartOpen(true);
+        }}
       />
 
       <SourcingModal

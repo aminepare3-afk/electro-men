@@ -12,7 +12,10 @@ import {
   ChevronUp,
   Package,
   Sparkles,
-  ArrowRight,
+  Navigation,
+  Loader2,
+  Mail,
+  PartyPopper,
 } from 'lucide-react';
 import { CartItem, PastOrder, Product } from '../types';
 import { getThumbnail, getFinalPrice } from '../utils/product';
@@ -44,6 +47,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [deliveryMethod, setDeliveryMethod] = useState<'Livraison à domicile' | 'Retrait en boutique'>('Livraison à domicile');
   const [orderNotes, setOrderNotes] = useState('');
 
+  // Geolocation
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [geoAddress, setGeoAddress] = useState<string | null>(null);
+
+  // Order submission
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'confirmed' | 'error'>('idle');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null);
+
+  // Post-order contact capture ("stay in touch" email)
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactDone, setContactDone] = useState(false);
+  const [contactSkipped, setContactSkipped] = useState(false);
+
   // Past Orders loaded from LocalStorage
   const [pastOrders, setPastOrders] = useState<PastOrder[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -74,11 +95,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const totalFcfa = cart.reduce((sum, item) => sum + getFinalPrice(item.product) * item.quantity, 0);
 
-  // Save order to LocalStorage history
-  const saveOrderToHistory = (orderItems: CartItem[]) => {
+  // Save order to LocalStorage history (for the customer's own "mes commandes" view on this device)
+  const saveOrderToHistory = (orderItems: CartItem[], orderNumber: string) => {
     try {
       const newOrder: PastOrder = {
-        id: 'CMD-' + Math.floor(100000 + Math.random() * 900000),
+        id: orderNumber,
         date: new Date().toLocaleString('fr-FR', {
           day: '2-digit',
           month: '2-digit',
@@ -102,47 +123,118 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   };
 
-  const handleCheckoutWhatsApp = () => {
-    if (cart.length === 0) return;
-
-    // Save order in history before opening WhatsApp
-    saveOrderToHistory(cart);
-
-    const orderNumber = 'CMD-' + Math.floor(100000 + Math.random() * 900000);
-    const orderDate = new Date().toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    let itemsList = cart
-      .map((item, idx) => {
-        const price = getFinalPrice(item.product);
-        const promoTag = item.product.discountPercent ? ` (Promo -${item.product.discountPercent}%)` : '';
-        return `${idx + 1}. *${item.product.name}*${promoTag}\n   Réf MPN : ${item.product.mpn}\n   Qté : ${item.quantity} x ${price.toLocaleString('fr-FR')} FCFA = *${(price * item.quantity).toLocaleString('fr-FR')} FCFA*`;
-      })
-      .join('\n\n');
-
-    const msg = encodeURIComponent(
-      `Bonjour ELECTRO MEN 👋\n\n` +
-        `Je souhaite passer la commande suivante (Réf. ${orderNumber}) :\n\n` +
-        `🛒 *DÉTAIL DE LA COMMANDE*\n${itemsList}\n\n` +
-        `💵 *TOTAL À PAYER : ${totalFcfa.toLocaleString('fr-FR')} FCFA*\n\n` +
-        `👤 *INFORMATIONS CLIENT*\n` +
-        `• Nom : ${customerName || 'Non précisé'}\n` +
-        `• Téléphone/WhatsApp : ${phone || 'Non précisé'}\n\n` +
-        `📍 *LIVRAISON*\n` +
-        `• Mode : ${deliveryMethod}\n` +
-        `• Ville : ${city}\n` +
-        `• Quartier / Adresse : ${neighborhood || 'Non précisé'}\n` +
-        (orderNotes.trim() ? `\n📝 *Instructions spéciales*\n${orderNotes.trim()}\n` : '') +
-        `\n🕐 Commande envoyée le ${orderDate}\n\n` +
-        `Merci de me confirmer la disponibilité, le mode de paiement (Orange Money/Moov Money/Espèces) et le délai de livraison. 🙏`
+  // Ask the browser for the customer's current position, then try to resolve a readable address.
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoStatus('error');
+      return;
+    }
+    setGeoStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lng);
+        setGeoStatus('success');
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=fr`
+          );
+          const json = await res.json();
+          if (json?.display_name) setGeoAddress(json.display_name as string);
+        } catch (e) {
+          // Repli silencieux : les coordonnées seules suffisent pour l'admin.
+        }
+      },
+      () => setGeoStatus('error'),
+      { enableHighAccuracy: true, timeout: 10000 }
     );
+  };
 
-    window.open(`https://wa.me/22665484738?text=${msg}`, '_blank');
+  // Submit the order to the server (no more WhatsApp redirect) and show a confirmation step.
+  const handleSubmitOrder = async () => {
+    if (cart.length === 0) return;
+    setSubmitStatus('submitting');
+    setSubmitError(null);
+
+    const order = {
+      items: cart.map((item) => ({
+        productId: item.product.id,
+        name: item.product.name,
+        mpn: item.product.mpn,
+        quantity: item.quantity,
+        unitPrice: getFinalPrice(item.product),
+        discountPercent: item.product.discountPercent || undefined,
+      })),
+      totalFcfa,
+      customerName: customerName.trim() || 'Client',
+      phone: phone.trim(),
+      city,
+      neighborhood: neighborhood.trim(),
+      deliveryMethod,
+      notes: orderNotes.trim(),
+      latitude: latitude ?? undefined,
+      longitude: longitude ?? undefined,
+      addressText: geoAddress ?? undefined,
+    };
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        saveOrderToHistory(cart, json.orderNumber);
+        setLastOrderId(json.id);
+        setLastOrderNumber(json.orderNumber);
+        onClearCart();
+        setSubmitStatus('confirmed');
+      } else {
+        setSubmitError(json.error || "Erreur lors de l'envoi de la commande.");
+        setSubmitStatus('error');
+      }
+    } catch (e) {
+      setSubmitError('Impossible de contacter le serveur. Vérifiez votre connexion.');
+      setSubmitStatus('error');
+    }
+  };
+
+  const handleSubmitContactEmail = async () => {
+    if (!lastOrderId || !contactEmail.trim()) return;
+    setContactSubmitting(true);
+    try {
+      const res = await fetch('/api/orders/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: lastOrderId, email: contactEmail.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setContactDone(true);
+      }
+    } catch (e) {
+      // Non-bloquant : la commande est déjà enregistrée sans email.
+    } finally {
+      setContactSubmitting(false);
+    }
+  };
+
+  // Reset the whole checkout flow back to an empty cart, ready for the next visit.
+  const handleFinishCheckout = () => {
+    setSubmitStatus('idle');
+    setLastOrderId(null);
+    setLastOrderNumber(null);
+    setContactEmail('');
+    setContactDone(false);
+    setContactSkipped(false);
+    setLatitude(null);
+    setLongitude(null);
+    setGeoAddress(null);
+    setGeoStatus('idle');
+    onClose();
   };
 
   // Quick Reorder functionality
@@ -208,6 +300,69 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </button>
           </div>
 
+          {/* CONFIRMATION SCREEN — shown right after an order is successfully submitted */}
+          {submitStatus === 'confirmed' ? (
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center space-y-5">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+                <PartyPopper className="w-8 h-8 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 font-mono">Commande envoyée !</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Référence <span className="font-mono font-bold text-amber-800">{lastOrderNumber}</span>
+                </p>
+                <p className="text-xs text-slate-500 mt-2 max-w-xs mx-auto">
+                  Nous avons bien reçu votre commande et nous vous contacterons très vite pour confirmer la livraison.
+                </p>
+              </div>
+
+              {!contactDone && !contactSkipped ? (
+                <div className="w-full max-w-xs p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-900">
+                    <Mail className="w-4 h-4" />
+                    <span className="text-xs font-mono font-bold uppercase">Restez informé</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 text-left leading-relaxed">
+                    Laissez votre email pour garder le contact : suivi de vos commandes, vos favoris et nos offres.
+                  </p>
+                  <input
+                    type="email"
+                    placeholder="votre@email.com"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-slate-900 text-sm focus:outline-none focus:border-amber-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setContactSkipped(true)}
+                      className="flex-1 py-2 rounded-lg bg-white border border-slate-300 text-slate-600 text-xs font-mono font-bold"
+                    >
+                      Plus tard
+                    </button>
+                    <button
+                      onClick={handleSubmitContactEmail}
+                      disabled={!contactEmail.trim() || contactSubmitting}
+                      className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-mono font-bold disabled:opacity-50"
+                    >
+                      {contactSubmitting ? 'Envoi...' : 'Continuer'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-emerald-700 font-mono flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" /> {contactDone ? 'Merci, à bientôt !' : ''}
+                </p>
+              )}
+
+              <button
+                onClick={handleFinishCheckout}
+                className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-mono font-bold uppercase"
+              >
+                Continuer mes achats
+              </button>
+            </div>
+          ) : (
+          <>
           {/* Navigation Tab Bar */}
           <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-2 gap-2 font-mono text-xs shrink-0">
             <button
@@ -400,8 +555,47 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </div>
                       </div>
 
+                      {/* Use my current location */}
                       <div>
-                        <label className="block text-slate-600 mb-0.5">Numéro Téléphone / WhatsApp</label>
+                        <button
+                          type="button"
+                          onClick={handleUseMyLocation}
+                          disabled={geoStatus === 'loading'}
+                          className={`w-full px-3 py-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 border transition-colors ${
+                            geoStatus === 'success'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                              : 'bg-cyan-50 border-cyan-300 text-cyan-800 hover:bg-cyan-100'
+                          } disabled:opacity-60`}
+                        >
+                          {geoStatus === 'loading' ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Localisation en cours...</span>
+                            </>
+                          ) : geoStatus === 'success' ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Position enregistrée ✓</span>
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Utiliser ma position actuelle</span>
+                            </>
+                          )}
+                        </button>
+                        {geoStatus === 'success' && geoAddress && (
+                          <p className="text-[10px] text-emerald-700 mt-1 truncate">📍 {geoAddress}</p>
+                        )}
+                        {geoStatus === 'error' && (
+                          <p className="text-[10px] text-red-600 mt-1">
+                            Impossible d'obtenir votre position. Vérifiez que la localisation est autorisée, ou remplissez le quartier manuellement.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-600 mb-0.5">Numéro Téléphone</label>
                         <input
                           type="tel"
                           placeholder="Ex: +226 70 12 34 56"
@@ -458,7 +652,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <Package className="w-12 h-12 text-slate-300" />
                   <p className="text-xs">Aucune commande enregistrée dans l'historique local.</p>
                   <p className="text-[11px] text-slate-400 max-w-xs font-sans">
-                    Lorsque vous passez une commande via WhatsApp, elle est automatiquement sauvegardée ici.
+                    Lorsque vous passez une commande, elle est automatiquement sauvegardée ici.
                   </p>
                 </div>
               ) : (
@@ -578,14 +772,33 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </span>
               </div>
 
+              {submitError && (
+                <p className="text-[11px] text-red-600 font-sans">{submitError}</p>
+              )}
+
               <button
-                onClick={handleCheckoutWhatsApp}
-                className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-sm transition-all"
+                onClick={handleSubmitOrder}
+                disabled={submitStatus === 'submitting' || !phone.trim()}
+                className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-60"
               >
-                <Send className="w-5 h-5" />
-                <span>Envoyer Commande par WhatsApp (+226 65 48 47 38)</span>
+                {submitStatus === 'submitting' ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Envoi en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    <span>Commander</span>
+                  </>
+                )}
               </button>
+              {!phone.trim() && (
+                <p className="text-[10px] text-slate-500 text-center">Renseignez votre numéro de téléphone pour commander.</p>
+              )}
             </div>
+          )}
+          </>
           )}
 
         </div>

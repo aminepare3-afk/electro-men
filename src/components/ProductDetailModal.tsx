@@ -8,12 +8,14 @@ interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
   onAddToCart: (product: Product, quantity: number) => void;
+  onOrderNow: (product: Product, quantity: number) => void;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   onClose,
   onAddToCart,
+  onOrderNow,
 }) => {
   const [qty, setQty] = useState(1);
   const [activeMedia, setActiveMedia] = useState<{ type: 'image' | 'video'; index: number }>({ type: 'image', index: 0 });
@@ -32,11 +34,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const finalPrice = getFinalPrice(product);
   const onSale = hasDiscount(product);
   const videoInfo = product.videoUrl ? getVideoEmbedInfo(product.videoUrl) : null;
-
-  const formattedMsg = encodeURIComponent(
-    `Bonjour ELECTRO MEN 👋\n\nJe souhaite commander :\n\n🔩 *${product.name}*\n📎 Référence MPN : ${product.mpn}\n🔢 Quantité : ${qty}\n💰 Prix unitaire : ${finalPrice.toLocaleString('fr-FR')} FCFA${onSale ? ` (Promo -${product.discountPercent}% !)` : ''}\n💵 Total estimé : ${(finalPrice * qty).toLocaleString('fr-FR')} FCFA\n\nMerci de me donner les instructions de livraison au Burkina Faso.`
-  );
-  const whatsappUrl = `https://wa.me/22665484738?text=${formattedMsg}`;
 
   const productShareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?produit=${product.id}`;
 
@@ -262,15 +259,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <span>Ajouter au Panier ({qty})</span>
           </button>
 
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => {
+              onOrderNow(product, qty);
+              onClose();
+            }}
             className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs font-mono uppercase flex items-center justify-center gap-2 shadow-lg"
           >
             <Send className="w-4 h-4" />
-            <span>Commander Directement par WhatsApp</span>
-          </a>
+            <span>Commander Maintenant</span>
+          </button>
         </div>
       </div>
     </div>

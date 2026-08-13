@@ -24,6 +24,36 @@ export interface CartItem {
   quantity: number;
 }
 
+export type OrderStatus = 'new' | 'contacted' | 'confirmed' | 'delivered' | 'cancelled';
+
+export interface OrderItem {
+  productId: string;
+  name: string;
+  mpn: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercent?: number;
+}
+
+export interface Order {
+  id: string;
+  orderNumber: string;
+  items: OrderItem[];
+  totalFcfa: number;
+  customerName: string;
+  phone: string;
+  email?: string;
+  city: string;
+  neighborhood: string;
+  deliveryMethod: string;
+  notes: string;
+  latitude?: number;
+  longitude?: number;
+  addressText?: string;
+  status: OrderStatus;
+  createdAt: string;
+}
+
 export interface PastOrder {
   id: string;
   date: string;
