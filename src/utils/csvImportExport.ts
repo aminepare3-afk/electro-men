@@ -254,3 +254,65 @@ export function downloadCsvTemplate() {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+// ---- Export des commandes (comptabilité / suivi) ----
+const ORDER_HEADERS = [
+  'Numero',
+  'Date',
+  'Client',
+  'Telephone',
+  'Email',
+  'Ville',
+  'Quartier',
+  'Mode Livraison',
+  'Articles',
+  'Total FCFA',
+  'Statut',
+  'Position GPS',
+  'Notes',
+];
+
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  new: 'Nouvelle',
+  contacted: 'Contacté',
+  confirmed: 'Confirmée',
+  delivered: 'Livrée',
+  cancelled: 'Annulée',
+};
+
+/** Génère et déclenche le téléchargement de la liste des commandes au format CSV. */
+export function exportOrdersToCsv(orders: import('../types').Order[]) {
+  const rows = [ORDER_HEADERS.join(',')];
+
+  for (const o of orders) {
+    const itemsSummary = o.items.map((it) => `${it.name} x${it.quantity}`).join(' | ');
+    const gps = o.latitude && o.longitude ? `${o.latitude},${o.longitude}` : '';
+    const row = [
+      o.orderNumber,
+      new Date(o.createdAt).toLocaleString('fr-FR'),
+      o.customerName,
+      o.phone,
+      o.email || '',
+      o.city,
+      o.neighborhood || '',
+      o.deliveryMethod || '',
+      itemsSummary,
+      String(o.totalFcfa),
+      ORDER_STATUS_LABEL[o.status] || o.status,
+      gps,
+      o.notes || '',
+    ].map((v) => csvEscape(String(v ?? '')));
+    rows.push(row.join(','));
+  }
+
+  const csvContent = '\uFEFF' + rows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `electro-men-commandes-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

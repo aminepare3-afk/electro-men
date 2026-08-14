@@ -8,6 +8,10 @@
       "destination": "/api/index"
     },
     {
+      "source": "/share/(.*)",
+      "destination": "/api/index"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

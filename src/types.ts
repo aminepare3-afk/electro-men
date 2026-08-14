@@ -40,6 +40,8 @@ export interface Order {
   orderNumber: string;
   items: OrderItem[];
   totalFcfa: number;
+  subtotalFcfa?: number;
+  deliveryFee?: number;
   customerName: string;
   phone: string;
   email?: string;
@@ -50,6 +52,8 @@ export interface Order {
   latitude?: number;
   longitude?: number;
   addressText?: string;
+  paymentMethod?: 'cash' | 'orange_money' | 'moov_money';
+  paymentReference?: string;
   status: OrderStatus;
   createdAt: string;
 }

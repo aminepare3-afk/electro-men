@@ -241,6 +241,13 @@ app.post("/api/orders", async (req: express.Request, res: express.Response) => {
   if (!requireDb(res)) return;
 
   const order = req.body?.order;
+
+  // Honeypot anti-bot: a hidden field real customers never fill. If it's filled, silently
+  // pretend success (so the bot doesn't learn to adapt) without ever touching the database.
+  if (order?.website) {
+    return res.status(200).json({ success: true, id: "noop", orderNumber: "CMD-000000" });
+  }
+
   if (!order || !Array.isArray(order.items) || order.items.length === 0) {
     return res.status(400).json({ success: false, error: "Commande invalide (panier vide)." });
   }
@@ -249,10 +256,25 @@ app.post("/api/orders", async (req: express.Request, res: express.Response) => {
   }
 
   try {
+    // Basic rate limiting: block a phone number placing more than 3 orders in 10 minutes.
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase!
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("data->>phone", order.phone)
+      .gte("created_at", tenMinutesAgo);
+    if ((recentCount || 0) >= 3) {
+      return res.status(429).json({
+        success: false,
+        error: "Trop de commandes envoyées en peu de temps avec ce numéro. Merci de patienter quelques minutes ou de nous contacter directement.",
+      });
+    }
+
     const id = `order-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const orderNumber = `CMD-${Math.floor(100000 + Math.random() * 900000)}`;
+    const { website, ...cleanOrder } = order;
     const record = {
-      ...order,
+      ...cleanOrder,
       id,
       orderNumber,
       status: "new",
@@ -263,6 +285,30 @@ app.post("/api/orders", async (req: express.Request, res: express.Response) => {
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
+
+    // Best-effort stock decrement — never fails the order if a product was deleted/changed meanwhile.
+    for (const item of order.items) {
+      try {
+        const { data: productRow } = await supabase!
+          .from("products")
+          .select("data")
+          .eq("id", item.productId)
+          .single();
+        if (productRow?.data) {
+          const currentStock = Number(productRow.data.stock) || 0;
+          const newStock = Math.max(0, currentStock - Number(item.quantity || 0));
+          const updatedProduct = {
+            ...productRow.data,
+            stock: newStock,
+            status: newStock === 0 ? "OUT_OF_STOCK" : productRow.data.status,
+          };
+          await supabase!.from("products").update({ data: updatedProduct }).eq("id", item.productId);
+        }
+      } catch (stockErr) {
+        console.error("[Stock decrement]", item.productId, stockErr);
+      }
+    }
+
     return res.status(200).json({ success: true, id, orderNumber });
   } catch (e: any) {
     console.error("[POST /api/orders]", e);
@@ -341,6 +387,59 @@ app.post("/api/orders/contact", async (req: express.Request, res: express.Respon
     console.error("[POST /api/orders/contact]", e);
     return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
   }
+});
+
+// Shareable product preview page — social apps (WhatsApp, Facebook, etc.) read the Open Graph
+// tags here when a product link is shared, then real visitors are redirected to the actual site.
+app.get("/share/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  const siteUrl = `${req.protocol}://${req.get("host")}`;
+  const redirectUrl = `${siteUrl}/?produit=${encodeURIComponent(req.params.id)}`;
+
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  let title = "ELECTRO MEN - Composants Électroniques & Sourcing";
+  let description = "Vente de composants électroniques et service de sourcing sur-mesure au Burkina Faso.";
+  let image = `${siteUrl}/icon-512.png`;
+
+  if (supabase) {
+    try {
+      const { data } = await supabase.from("products").select("data").eq("id", req.params.id).single();
+      if (data?.data) {
+        const p = data.data;
+        title = `${p.name} — ${Number(p.priceFcfa).toLocaleString("fr-FR")} FCFA | ELECTRO MEN`;
+        description = (p.description || "").slice(0, 160) || description;
+        if (p.images?.[0]) image = p.images[0];
+        else if (p.thumbnails?.[0]) image = p.thumbnails[0];
+      }
+    } catch (e) {
+      // Repli silencieux sur les valeurs par défaut du site si le produit est introuvable.
+    }
+  }
+
+  res.status(200).send(`<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${escapeHtml(description)}" />
+<meta property="og:type" content="product" />
+<meta property="og:title" content="${escapeHtml(title)}" />
+<meta property="og:description" content="${escapeHtml(description)}" />
+<meta property="og:image" content="${escapeHtml(image)}" />
+<meta property="og:url" content="${escapeHtml(redirectUrl)}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${escapeHtml(title)}" />
+<meta name="twitter:description" content="${escapeHtml(description)}" />
+<meta name="twitter:image" content="${escapeHtml(image)}" />
+<meta http-equiv="refresh" content="0; url=${escapeHtml(redirectUrl)}" />
+</head>
+<body>
+<p>Redirection vers <a href="${escapeHtml(redirectUrl)}">${escapeHtml(title)}</a>...</p>
+<script>window.location.replace(${JSON.stringify(redirectUrl)});</script>
+</body>
+</html>`);
 });
 
 // Health API

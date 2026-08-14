@@ -44,7 +44,7 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,jpg,svg}'],
-          navigateFallbackDenylist: [/\/api\//],
+          navigateFallbackDenylist: [/\/api\//, /\/share\//],
           runtimeCaching: [
             {
               // Affiche instantanément la version en cache pendant que la nouvelle est récupérée en fond —

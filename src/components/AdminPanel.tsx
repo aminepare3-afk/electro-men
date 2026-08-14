@@ -4,7 +4,7 @@ import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from 
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
 import { compressImageWithThumbnail } from '../utils/imageCompression';
-import { exportProductsToCsv, downloadCsvTemplate, parseProductsCsv, ParsedImportResult } from '../utils/csvImportExport';
+import { exportProductsToCsv, downloadCsvTemplate, parseProductsCsv, ParsedImportResult, exportOrdersToCsv } from '../utils/csvImportExport';
 
 interface AdminPanelProps {
   products: Product[];
@@ -38,9 +38,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const knownOrderIdsRef = useRef<Set<string> | null>(null);
 
-  const fetchOrders = async () => {
-    setOrdersLoading(true);
+  // Plays a short two-tone beep using the Web Audio API — no external sound file needed.
+  const playNotificationSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      [880, 1175].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.25);
+      });
+    } catch (e) {
+      // Silencieux si l'audio n'est pas disponible (ex: onglet en arrière-plan sur certains navigateurs).
+    }
+  };
+
+  const fetchOrders = async (silent = false) => {
+    if (!silent) setOrdersLoading(true);
     setOrdersError(null);
     try {
       const res = await fetch('/api/orders', {
@@ -48,23 +72,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       });
       const json = await res.json();
       if (json.success) {
-        setOrders(json.data);
+        const freshOrders: Order[] = json.data;
+
+        // Detect brand-new orders since the last poll to trigger a notification.
+        if (knownOrderIdsRef.current) {
+          const newOnes = freshOrders.filter((o) => !knownOrderIdsRef.current!.has(o.id));
+          if (newOnes.length > 0) {
+            setNewOrdersCount((prev) => prev + newOnes.length);
+            playNotificationSound();
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              new Notification('🛒 Nouvelle commande ELECTRO MEN', {
+                body: `${newOnes[0].customerName} — ${newOnes[0].totalFcfa.toLocaleString('fr-FR')} FCFA`,
+              });
+            }
+          }
+        }
+        knownOrderIdsRef.current = new Set(freshOrders.map((o) => o.id));
+
+        setOrders(freshOrders);
       } else {
         setOrdersError(json.error || 'Erreur lors du chargement des commandes.');
       }
     } catch (e) {
       setOrdersError('Impossible de contacter le serveur.');
     } finally {
-      setOrdersLoading(false);
+      if (!silent) setOrdersLoading(false);
     }
   };
 
   useEffect(() => {
     if (isAuthenticated && activeTab === 'orders') {
       fetchOrders();
+      setNewOrdersCount(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, activeTab]);
+
+  // Poll for new orders every 25s while logged in, and ask for notification permission once.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    const interval = setInterval(() => {
+      fetchOrders(true);
+    }, 25000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
@@ -467,7 +522,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+          className={`relative px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
             activeTab === 'orders'
               ? 'bg-amber-500 text-slate-950 shadow-sm'
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -475,6 +530,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         >
           <ClipboardList className="w-4 h-4" />
           <span>Commandes {orders.length > 0 ? `(${orders.length})` : ''}</span>
+          {newOrdersCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-bold animate-pulse">
+              {newOrdersCount > 9 ? '9+' : newOrdersCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -597,6 +657,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
+          {/* Low Stock Alert Banner */}
+          {(() => {
+            const LOW_STOCK_THRESHOLD = 5;
+            const lowStockProducts = products.filter(
+              (p) => p.status !== 'OUT_OF_STOCK' && p.stock > 0 && p.stock <= LOW_STOCK_THRESHOLD
+            );
+            const outOfStockCount = products.filter((p) => p.status === 'OUT_OF_STOCK' || p.stock === 0).length;
+            if (lowStockProducts.length === 0 && outOfStockCount === 0) return null;
+            return (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 space-y-1.5">
+                <div className="flex items-center gap-2 text-amber-900 text-xs font-mono font-bold uppercase">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Alerte Stock</span>
+                </div>
+                {lowStockProducts.length > 0 && (
+                  <p className="text-xs text-amber-800">
+                    <strong>{lowStockProducts.length}</strong> produit(s) en stock faible (≤{LOW_STOCK_THRESHOLD}) :{' '}
+                    {lowStockProducts.map((p) => `${p.name} (${p.stock})`).join(', ')}
+                  </p>
+                )}
+                {outOfStockCount > 0 && (
+                  <p className="text-xs text-red-700">
+                    <strong>{outOfStockCount}</strong> produit(s) épuisé(s).
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+
           {products.length === 0 ? (
             <div className="p-12 text-center bg-slate-50 rounded-2xl border border-slate-200 font-mono space-y-3">
               <Cpu className="w-12 h-12 text-slate-400 mx-auto" />
@@ -689,14 +778,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="space-y-4 font-sans">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-mono font-bold uppercase text-slate-800">Commandes Reçues</h3>
-            <button
-              onClick={fetchOrders}
-              disabled={ordersLoading}
-              className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono font-bold flex items-center gap-1.5"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
-              <span>Actualiser</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => exportOrdersToCsv(orders)}
+                disabled={orders.length === 0}
+                className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-mono font-bold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Exporter CSV</span>
+              </button>
+              <button
+                onClick={() => fetchOrders()}
+                disabled={ordersLoading}
+                className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono font-bold flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? 'animate-spin' : ''}`} />
+                <span>Actualiser</span>
+              </button>
+            </div>
           </div>
 
           {ordersError && (
@@ -773,6 +872,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       ) : null}
                     </div>
                   </div>
+
+                  {order.paymentMethod && order.paymentMethod !== 'cash' && (
+                    <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2 font-mono">
+                      💳 {order.paymentMethod === 'orange_money' ? 'Orange Money' : 'Moov Money'}
+                      {order.paymentReference ? ` — Réf: ${order.paymentReference}` : ' (référence non fournie)'}
+                    </p>
+                  )}
 
                   {order.notes && (
                     <p className="text-xs text-slate-600 italic bg-amber-50/60 border border-amber-100 rounded-lg p-2">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Send, CheckCircle2, Clock, AlertTriangle, FileText, ArrowRightLeft, Share2, Images, Tag } from 'lucide-react';
+import { ShoppingCart, Send, CheckCircle2, Clock, AlertTriangle, FileText, ArrowRightLeft, Share2, Images, Tag, Heart } from 'lucide-react';
 import { Product } from '../types';
 import { getThumbnail, getFinalPrice, hasDiscount } from '../utils/product';
 import { shareContent } from '../utils/share';
@@ -11,6 +11,8 @@ interface ProductCardProps {
   onAddToCart: (product: Product) => void;
   onOrderNow: (product: Product) => void;
   onSelectProduct: (product: Product) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (productId: string) => void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -20,13 +22,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   onOrderNow,
   onSelectProduct,
+  isFavorite = false,
+  onToggleFavorite,
 }) => {
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   const finalPrice = getFinalPrice(product);
   const onSale = hasDiscount(product);
 
-  const productShareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?produit=${product.id}`;
+  const productShareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/share/${product.id}`;
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -120,6 +124,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </button>
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(product.id);
+              }}
+              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center shadow-sm backdrop-blur-md transition-colors ${
+                isFavorite ? 'bg-red-500 text-white' : 'bg-white/90 hover:bg-white text-slate-700 hover:text-red-500'
+              }`}
+              title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            >
+              <Heart className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isFavorite ? 'fill-white' : ''}`} />
+            </button>
+          )}
           {shareStatus === 'copied' && (
             <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[9px] shadow-sm whitespace-nowrap">
               Lien copié !

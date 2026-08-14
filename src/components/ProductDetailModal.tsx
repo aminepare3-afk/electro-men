@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Send, FileText, ShieldCheck, Cpu, Share2, Tag, PlayCircle } from 'lucide-react';
+import { X, ShoppingCart, Send, FileText, ShieldCheck, Cpu, Share2, Tag, PlayCircle, Heart } from 'lucide-react';
 import { Product } from '../types';
 import { getImages, getFinalPrice, hasDiscount, getVideoEmbedInfo } from '../utils/product';
 import { shareContent } from '../utils/share';
@@ -9,6 +9,8 @@ interface ProductDetailModalProps {
   onClose: () => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onOrderNow: (product: Product, quantity: number) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (productId: string) => void;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -16,6 +18,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onClose,
   onAddToCart,
   onOrderNow,
+  isFavorite = false,
+  onToggleFavorite,
 }) => {
   const [qty, setQty] = useState(1);
   const [activeMedia, setActiveMedia] = useState<{ type: 'image' | 'video'; index: number }>({ type: 'image', index: 0 });
@@ -35,7 +39,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const onSale = hasDiscount(product);
   const videoInfo = product.videoUrl ? getVideoEmbedInfo(product.videoUrl) : null;
 
-  const productShareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?produit=${product.id}`;
+  const productShareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/share/${product.id}`;
 
   const handleShare = async () => {
     const result = await shareContent(
@@ -69,6 +73,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {onToggleFavorite && (
+              <button
+                onClick={() => onToggleFavorite(product.id)}
+                className={`p-2 rounded-lg transition-colors ${
+                  isFavorite ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600 hover:text-red-500 hover:bg-slate-300'
+                }`}
+                title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              >
+                <Heart className={`w-5 h-5 ${isFavorite ? 'fill-white' : ''}`} />
+              </button>
+            )}
             <button
               onClick={handleShare}
               className="p-2 rounded-lg bg-slate-200 text-slate-600 hover:text-amber-700 hover:bg-slate-300 transition-colors relative"

@@ -41,6 +41,33 @@ export default function App() {
     return [];
   });
 
+  // LocalStorage Persistence for Favorites (Wishlist)
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ELECTRO_MEN_FAVORITES');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Erreur lecture localStorage favoris:', e);
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ELECTRO_MEN_FAVORITES', JSON.stringify(favoriteIds));
+    } catch (e) {
+      console.error('Erreur sauvegarde localStorage favoris:', e);
+    }
+  }, [favoriteIds]);
+
+  const handleToggleFavorite = (productId: string) => {
+    setFavoriteIds((prev) =>
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+  };
+
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]);
@@ -536,6 +563,8 @@ export default function App() {
                   setIsCartOpen(true);
                 }}
                 onSelectProduct={(p) => setSelectedProduct(p)}
+                isFavorite={favoriteIds.includes(product.id)}
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>
@@ -616,6 +645,8 @@ export default function App() {
           handleAddToCart(p, qty);
           setIsCartOpen(true);
         }}
+        isFavorite={selectedProduct ? favoriteIds.includes(selectedProduct.id) : false}
+        onToggleFavorite={handleToggleFavorite}
       />
 
       <SourcingModal
@@ -633,6 +664,12 @@ export default function App() {
         onRemoveItem={handleRemoveItem}
         onClearCart={handleClearCart}
         onAddToCart={handleAddToCart}
+        favoriteProducts={products.filter((p) => favoriteIds.includes(p.id))}
+        onToggleFavorite={handleToggleFavorite}
+        onSelectProduct={(p) => {
+          setSelectedProduct(p);
+          setIsCartOpen(false);
+        }}
       />
 
       <CompareModal

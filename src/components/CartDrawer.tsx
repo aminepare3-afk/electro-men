@@ -17,8 +17,11 @@ import {
   Mail,
   PartyPopper,
 } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { CartItem, PastOrder, Product } from '../types';
 import { getThumbnail, getFinalPrice } from '../utils/product';
+import { getDeliveryFee } from '../config/deliveryFees';
+import { MOBILE_MONEY_CONFIG, isMobileMoneyEnabled } from '../config/mobileMoney';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -28,6 +31,9 @@ interface CartDrawerProps {
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
   onAddToCart?: (product: Product, quantity?: number) => void;
+  favoriteProducts?: Product[];
+  onToggleFavorite?: (productId: string) => void;
+  onSelectProduct?: (product: Product) => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -38,14 +44,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onRemoveItem,
   onClearCart,
   onAddToCart,
+  favoriteProducts = [],
+  onToggleFavorite,
+  onSelectProduct,
 }) => {
-  const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
+  const [activeTab, setActiveTab] = useState<'cart' | 'history' | 'favorites'>('cart');
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('Ouagadougou');
   const [neighborhood, setNeighborhood] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'Livraison à domicile' | 'Retrait en boutique'>('Livraison à domicile');
   const [orderNotes, setOrderNotes] = useState('');
+  const [honeypot, setHoneypot] = useState(''); // champ piège anti-bot, invisible pour un humain
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'orange_money' | 'moov_money'>('cash');
+  const [paymentReference, setPaymentReference] = useState('');
 
   // Geolocation
   const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -93,7 +105,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  const totalFcfa = cart.reduce((sum, item) => sum + getFinalPrice(item.product) * item.quantity, 0);
+  const subtotalFcfa = cart.reduce((sum, item) => sum + getFinalPrice(item.product) * item.quantity, 0);
+  const deliveryFee = getDeliveryFee(city, deliveryMethod);
+  const totalFcfa = subtotalFcfa + deliveryFee;
 
   // Save order to LocalStorage history (for the customer's own "mes commandes" view on this device)
   const saveOrderToHistory = (orderItems: CartItem[], orderNumber: string) => {
@@ -168,6 +182,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         discountPercent: item.product.discountPercent || undefined,
       })),
       totalFcfa,
+      subtotalFcfa,
+      deliveryFee,
       customerName: customerName.trim() || 'Client',
       phone: phone.trim(),
       city,
@@ -177,6 +193,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       latitude: latitude ?? undefined,
       longitude: longitude ?? undefined,
       addressText: geoAddress ?? undefined,
+      paymentMethod,
+      paymentReference: paymentReference.trim() || undefined,
+      website: honeypot, // rempli uniquement par les bots
     };
 
     try {
@@ -364,28 +383,40 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           ) : (
           <>
           {/* Navigation Tab Bar */}
-          <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-2 gap-2 font-mono text-xs shrink-0">
+          <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-3 gap-1.5 font-mono text-[10px] sm:text-xs shrink-0">
             <button
               onClick={() => setActiveTab('cart')}
-              className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`py-2 px-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'cart'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
-              <ShoppingCart className="w-4 h-4 text-amber-600" />
-              <span>Panier Actuel ({cart.reduce((sum, item) => sum + item.quantity, 0)})</span>
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
+              <span>Panier ({cart.reduce((sum, item) => sum + item.quantity, 0)})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('favorites')}
+              className={`py-2 px-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all ${
+                activeTab === 'favorites'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-500" />
+              <span>Favoris ({favoriteProducts.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('history')}
-              className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`py-2 px-2 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'history'
                   ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
-              <History className="w-4 h-4 text-cyan-600" />
+              <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-600" />
               <span>Historique ({pastOrders.length})</span>
             </button>
           </div>
@@ -627,9 +658,121 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white resize-none"
                         />
                       </div>
+
+                      {isMobileMoneyEnabled && (
+                        <div>
+                          <label className="block text-slate-600 mb-0.5">Mode de Paiement</label>
+                          <select
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
+                          >
+                            <option value="cash">Paiement à la livraison (Espèces)</option>
+                            {MOBILE_MONEY_CONFIG.orangeMoneyNumber && (
+                              <option value="orange_money">Orange Money</option>
+                            )}
+                            {MOBILE_MONEY_CONFIG.moovMoneyNumber && (
+                              <option value="moov_money">Moov Money</option>
+                            )}
+                          </select>
+
+                          {paymentMethod !== 'cash' && (
+                            <div className="mt-1.5 p-2.5 rounded-lg bg-amber-50 border border-amber-200 space-y-1.5">
+                              <p className="text-[11px] text-amber-900">
+                                Envoyez <strong>{totalFcfa.toLocaleString('fr-FR')} FCFA</strong> au numéro{' '}
+                                <strong>
+                                  {paymentMethod === 'orange_money'
+                                    ? MOBILE_MONEY_CONFIG.orangeMoneyNumber
+                                    : MOBILE_MONEY_CONFIG.moovMoneyNumber}
+                                </strong>{' '}
+                                puis indiquez la référence de transaction ci-dessous.
+                              </p>
+                              <input
+                                type="text"
+                                placeholder="Référence de la transaction"
+                                value={paymentReference}
+                                onChange={(e) => setPaymentReference(e.target.value)}
+                                className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Honeypot anti-bot : invisible et inaccessible pour un humain, seuls les bots le remplissent */}
+                      <div className="absolute -left-[9999px] opacity-0 pointer-events-none" aria-hidden="true">
+                        <label htmlFor="website">Ne pas remplir ce champ</label>
+                        <input
+                          type="text"
+                          id="website"
+                          name="website"
+                          tabIndex={-1}
+                          autoComplete="off"
+                          value={honeypot}
+                          onChange={(e) => setHoneypot(e.target.value)}
+                        />
+                      </div>
                     </div>
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* TAB: FAVORITES */}
+          {activeTab === 'favorites' && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {favoriteProducts.length === 0 ? (
+                <div className="h-64 flex flex-col items-center justify-center text-center text-slate-500 space-y-3 font-mono">
+                  <Heart className="w-12 h-12 text-slate-300" />
+                  <p className="text-sm">Aucun favori pour l'instant.</p>
+                  <p className="text-[11px] text-slate-400 max-w-xs font-sans">
+                    Cliquez sur le cœur ♡ d'un produit pour le retrouver ici facilement.
+                  </p>
+                </div>
+              ) : (
+                favoriteProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex gap-3 items-center"
+                  >
+                    <img
+                      src={getThumbnail(product)}
+                      alt={product.name}
+                      loading="lazy"
+                      className="w-14 h-14 object-cover rounded-lg bg-white border border-slate-200 shrink-0 cursor-pointer"
+                      onClick={() => onSelectProduct?.(product)}
+                      onError={(e) => {
+                        (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
+                      }}
+                    />
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSelectProduct?.(product)}>
+                      <span className="text-[10px] font-mono text-amber-800 font-semibold block truncate">
+                        MPN: {product.mpn}
+                      </span>
+                      <h4 className="text-xs font-bold text-slate-900 truncate">{product.name}</h4>
+                      <span className="text-xs font-mono text-amber-700 font-bold">
+                        {product.priceFcfa.toLocaleString('fr-FR')} FCFA
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <button
+                        onClick={() => onAddToCart?.(product, 1)}
+                        className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950"
+                        title="Ajouter au panier"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => onToggleFavorite?.(product.id)}
+                        className="text-red-500 hover:text-red-700"
+                        title="Retirer des favoris"
+                      >
+                        <Heart className="w-4 h-4 fill-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           )}
@@ -765,7 +908,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               className="p-5 bg-slate-50 border-t border-slate-200 space-y-3 font-mono shrink-0"
               style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             >
-              <div className="flex items-center justify-between text-sm">
+              <div className="space-y-1 text-xs font-sans text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span>Sous-total :</span>
+                  <span className="font-mono">{subtotalFcfa.toLocaleString('fr-FR')} FCFA</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Frais de livraison ({deliveryMethod === 'Retrait en boutique' ? 'retrait' : city}) :</span>
+                  <span className="font-mono">
+                    {deliveryFee === 0 ? 'Gratuit' : `${deliveryFee.toLocaleString('fr-FR')} FCFA`}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm pt-2 border-t border-slate-200">
                 <span className="text-slate-600 font-sans">Total Commande :</span>
                 <span className="text-2xl font-black text-amber-800">
                   {totalFcfa.toLocaleString('fr-FR')} FCFA
