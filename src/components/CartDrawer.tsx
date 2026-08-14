@@ -20,7 +20,6 @@ import {
 import { Heart } from 'lucide-react';
 import { CartItem, PastOrder, Product } from '../types';
 import { getThumbnail, getFinalPrice } from '../utils/product';
-import { getDeliveryFee } from '../config/deliveryFees';
 import { MOBILE_MONEY_CONFIG, isMobileMoneyEnabled } from '../config/mobileMoney';
 
 interface CartDrawerProps {
@@ -34,6 +33,7 @@ interface CartDrawerProps {
   favoriteProducts?: Product[];
   onToggleFavorite?: (productId: string) => void;
   onSelectProduct?: (product: Product) => void;
+  deliveryFees?: Record<string, number>;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -47,6 +47,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   favoriteProducts = [],
   onToggleFavorite,
   onSelectProduct,
+  deliveryFees = {},
 }) => {
   const [activeTab, setActiveTab] = useState<'cart' | 'history' | 'favorites'>('cart');
   const [customerName, setCustomerName] = useState('');
@@ -106,7 +107,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   const subtotalFcfa = cart.reduce((sum, item) => sum + getFinalPrice(item.product) * item.quantity, 0);
-  const deliveryFee = getDeliveryFee(city, deliveryMethod);
+  // Frais de livraison : configurés par l'admin (Paramètres). S'il n'y a rien pour cette ville,
+  // on ne facture rien automatiquement — le montant sera communiqué directement par ELECTRO MEN.
+  const isPickup = deliveryMethod === 'Retrait en boutique';
+  const configuredFee = deliveryFees[city];
+  const deliveryFeeKnown = isPickup || typeof configuredFee === 'number';
+  const deliveryFee = isPickup ? 0 : configuredFee ?? 0;
   const totalFcfa = subtotalFcfa + deliveryFee;
 
   // Save order to LocalStorage history (for the customer's own "mes commandes" view on this device)
@@ -914,14 +920,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <span className="font-mono">{subtotalFcfa.toLocaleString('fr-FR')} FCFA</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Frais de livraison ({deliveryMethod === 'Retrait en boutique' ? 'retrait' : city}) :</span>
+                  <span>Frais de livraison ({isPickup ? 'retrait' : city}) :</span>
                   <span className="font-mono">
-                    {deliveryFee === 0 ? 'Gratuit' : `${deliveryFee.toLocaleString('fr-FR')} FCFA`}
+                    {isPickup
+                      ? 'Gratuit'
+                      : deliveryFeeKnown
+                      ? deliveryFee === 0
+                        ? 'Gratuit'
+                        : `${deliveryFee.toLocaleString('fr-FR')} FCFA`
+                      : 'Communiqué après'}
                   </span>
                 </div>
+                {!deliveryFeeKnown && (
+                  <p className="text-[10px] text-slate-500 italic">
+                    Les frais de livraison vers {city} vous seront communiqués directement par ELECTRO MEN.
+                  </p>
+                )}
               </div>
               <div className="flex items-center justify-between text-sm pt-2 border-t border-slate-200">
-                <span className="text-slate-600 font-sans">Total Commande :</span>
+                <span className="text-slate-600 font-sans">
+                  {deliveryFeeKnown ? 'Total Commande :' : 'Total (hors livraison) :'}
+                </span>
                 <span className="text-2xl font-black text-amber-800">
                   {totalFcfa.toLocaleString('fr-FR')} FCFA
                 </span>

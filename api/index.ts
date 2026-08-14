@@ -459,6 +459,43 @@ app.get("/share/:id", async (req: express.Request, res: express.Response) => {
 </html>`);
 });
 
+// GET store settings (public read — needed at checkout to compute delivery fees)
+app.get("/api/settings", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  try {
+    const { data, error } = await supabase!.from("settings").select("data").eq("id", "general").maybeSingle();
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, data: {} });
+    }
+    return res.status(200).json({ success: true, data: data?.data || {} });
+  } catch (e: any) {
+    console.error("[GET /api/settings]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur.", data: {} });
+  }
+});
+
+// UPDATE store settings (admin only)
+app.put("/api/settings", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const settings = req.body?.settings;
+  if (!settings || typeof settings !== "object") {
+    return res.status(400).json({ success: false, error: "Paramètres invalides." });
+  }
+  try {
+    const { error } = await supabase!.from("settings").upsert({ id: "general", data: settings }, { onConflict: "id" });
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    console.error("[PUT /api/settings]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
 // Health API
 app.get("/api/health", async (req: express.Request, res: express.Response) => {
   res.setHeader('Content-Type', 'application/json');

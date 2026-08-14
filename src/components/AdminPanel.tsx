@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw } from 'lucide-react';
+import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
@@ -32,7 +32,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'products' | 'add' | 'orders'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'add' | 'orders' | 'settings'>('products');
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -97,6 +97,63 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setOrdersError('Impossible de contacter le serveur.');
     } finally {
       if (!silent) setOrdersLoading(false);
+    }
+  };
+
+  // Settings state (delivery fees by city)
+  const DELIVERY_CITIES = ['Ouagadougou', 'Bobo-Dioulasso', 'Koudougou', 'Banfora', 'Ouahigouya', 'Autre Ville (Expédition)'];
+  const [deliveryFeesDraft, setDeliveryFeesDraft] = useState<Record<string, string>>({});
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+
+  const fetchSettingsForAdmin = async () => {
+    setSettingsLoading(true);
+    try {
+      const res = await fetch('/api/settings');
+      const json = await res.json();
+      if (json.success) {
+        const fees = json.data?.deliveryFees || {};
+        const draft: Record<string, string> = {};
+        DELIVERY_CITIES.forEach((c) => {
+          draft[c] = typeof fees[c] === 'number' ? String(fees[c]) : '';
+        });
+        setDeliveryFeesDraft(draft);
+      }
+    } catch (e) {
+      // silencieux, les champs resteront vides
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'settings') {
+      fetchSettingsForAdmin();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, activeTab]);
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true);
+    setSettingsMsg(null);
+    const deliveryFees: Record<string, number> = {};
+    Object.entries(deliveryFeesDraft).forEach(([city, val]) => {
+      const num = parseInt(val, 10);
+      if (!isNaN(num) && num >= 0) deliveryFees[city] = num;
+    });
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: { deliveryFees }, adminPassword: passwordInput }),
+      });
+      const json = await res.json();
+      setSettingsMsg(json.success ? 'Paramètres enregistrés ✓' : json.error || 'Erreur lors de l\'enregistrement.');
+    } catch (e) {
+      setSettingsMsg('Impossible de contacter le serveur.');
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -536,6 +593,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </span>
           )}
         </button>
+
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'settings'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          <span>Paramètres</span>
+        </button>
       </div>
 
       {/* Tab Content 1: Products Inventory Table */}
@@ -911,6 +980,63 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab Content: Settings */}
+      {activeTab === 'settings' && (
+        <div className="space-y-4 font-sans max-w-2xl">
+          <div className="p-4 rounded-xl bg-cyan-50 border border-cyan-200 flex items-start gap-2.5">
+            <Truck className="w-5 h-5 text-cyan-700 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-mono font-bold text-cyan-900">Frais de Livraison par Ville</h3>
+              <p className="text-xs text-cyan-800 mt-1">
+                Laisse un champ vide pour une ville si tu préfères communiquer le tarif toi-même au client
+                après la commande, plutôt que de l'afficher automatiquement sur le site.
+              </p>
+            </div>
+          </div>
+
+          {settingsLoading ? (
+            <p className="text-xs text-slate-400 font-mono">Chargement...</p>
+          ) : (
+            <div className="space-y-3">
+              {DELIVERY_CITIES.map((city) => (
+                <div key={city} className="flex items-center gap-3">
+                  <label className="flex-1 text-sm text-slate-700">{city}</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Non défini"
+                      value={deliveryFeesDraft[city] ?? ''}
+                      onChange={(e) =>
+                        setDeliveryFeesDraft((prev) => ({ ...prev, [city]: e.target.value }))
+                      }
+                      className="w-32 px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm font-mono focus:outline-none focus:border-amber-500"
+                    />
+                    <span className="text-xs text-slate-500 font-mono">FCFA</span>
+                  </div>
+                </div>
+              ))}
+
+              <div className="pt-3 border-t border-slate-200 flex items-center gap-3">
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={settingsSaving}
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-mono font-bold uppercase flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{settingsSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
+                </button>
+                {settingsMsg && (
+                  <span className={`text-xs font-mono ${settingsMsg.includes('✓') ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {settingsMsg}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>

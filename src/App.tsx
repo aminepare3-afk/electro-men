@@ -11,7 +11,6 @@ import { AdminPanel } from './components/AdminPanel';
 import { Product, CartItem } from './types';
 import { INITIAL_PRODUCTS, CATEGORIES, DEMO_SAMPLE_PRODUCTS } from './data/initialData';
 import { Logo } from './components/Logo';
-import { InstallPwaButton } from './components/InstallPwaButton';
 import { Send, Phone, MapPin, Globe, ShieldCheck, Zap, Cpu, Sparkles, Plus, ArrowLeft } from 'lucide-react';
 
 export default function App() {
@@ -193,6 +192,7 @@ export default function App() {
   // Admin Product Operations — synced with Supabase via /api/products
   const [dbError, setDbError] = useState<string | null>(null);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
 
   const fetchProducts = async () => {
     try {
@@ -212,8 +212,21 @@ export default function App() {
     }
   };
 
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      const json = await res.json();
+      if (json.success) {
+        setDeliveryFees(json.data?.deliveryFees || {});
+      }
+    } catch (e) {
+      console.error('Erreur chargement paramètres:', e);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchSettings();
   }, []);
 
   // Deep-link: open a specific product if the URL contains ?produit=<id> (shared link)
@@ -666,6 +679,7 @@ export default function App() {
         onAddToCart={handleAddToCart}
         favoriteProducts={products.filter((p) => favoriteIds.includes(p.id))}
         onToggleFavorite={handleToggleFavorite}
+        deliveryFees={deliveryFees}
         onSelectProduct={(p) => {
           setSelectedProduct(p);
           setIsCartOpen(false);
@@ -688,8 +702,6 @@ export default function App() {
         onRemoveFromCompare={handleRemoveFromCompare}
         onClearCompare={handleClearCompare}
       />
-
-      <InstallPwaButton />
 
     </div>
   );
