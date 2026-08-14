@@ -28,13 +28,30 @@ async function ensureStorageBucket(): Promise<void> {
   if (!supabase || bucketEnsured) return;
   try {
     const { data: buckets } = await supabase.storage.listBuckets();
-    const exists = (buckets || []).some((b) => b.name === STORAGE_BUCKET);
-    if (!exists) {
-      await supabase.storage.createBucket(STORAGE_BUCKET, {
+    const existing = (buckets || []).find((b) => b.name === STORAGE_BUCKET);
+
+    if (!existing) {
+      const { error: createError } = await supabase.storage.createBucket(STORAGE_BUCKET, {
         public: true,
         fileSizeLimit: "5MB",
       });
+      if (createError) {
+        console.error("[Storage Bucket Create]", createError.message);
+        return; // ne marque pas comme "ensured" : on réessaiera au prochain appel
+      }
+    } else if (!existing.public) {
+      // Le bucket existait déjà mais pas en public (ex: créé avant ce correctif) —
+      // c'est ce qui rendait les nouvelles photos inaccessibles malgré un upload "réussi".
+      const { error: updateError } = await supabase.storage.updateBucket(STORAGE_BUCKET, {
+        public: true,
+        fileSizeLimit: "5MB",
+      });
+      if (updateError) {
+        console.error("[Storage Bucket Update]", updateError.message);
+        return;
+      }
     }
+
     bucketEnsured = true;
   } catch (e) {
     console.error("[Storage Bucket Init]", e);
@@ -443,13 +460,28 @@ app.get("/share/:id", async (req: express.Request, res: express.Response) => {
 });
 
 // Health API
-app.get("/api/health", (req: express.Request, res: express.Response) => {
+app.get("/api/health", async (req: express.Request, res: express.Response) => {
   res.setHeader('Content-Type', 'application/json');
+  let storageStatus: string = "not_configured";
+  if (supabase) {
+    try {
+      const { data: buckets, error } = await supabase.storage.listBuckets();
+      if (error) {
+        storageStatus = `error: ${error.message}`;
+      } else {
+        const bucket = (buckets || []).find((b) => b.name === STORAGE_BUCKET);
+        storageStatus = !bucket ? "bucket_missing" : bucket.public ? "public_ok" : "PRIVATE_BUG";
+      }
+    } catch (e: any) {
+      storageStatus = `error: ${e?.message || "inconnue"}`;
+    }
+  }
   res.json({
     status: "ok",
     app: "ELECTRO MEN Backend",
     database: supabase ? "connected" : "not_configured",
     databaseError: supabaseInitError || undefined,
+    storageBucket: storageStatus,
   });
 });
 
