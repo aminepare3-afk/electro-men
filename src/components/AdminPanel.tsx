@@ -100,9 +100,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  // Settings state (delivery fees by city)
+  // Settings state (delivery zones by city/quartier + pickup address)
   const DELIVERY_CITIES = ['Ouagadougou', 'Bobo-Dioulasso', 'Koudougou', 'Banfora', 'Ouahigouya', 'Autre Ville (Expédition)'];
-  const [deliveryFeesDraft, setDeliveryFeesDraft] = useState<Record<string, string>>({});
+  interface DeliveryZone {
+    id: string;
+    city: string;
+    zoneName: string;
+    feeFcfa: number;
+  }
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [newZoneCity, setNewZoneCity] = useState(DELIVERY_CITIES[0]);
+  const [newZoneName, setNewZoneName] = useState('');
+  const [newZoneFee, setNewZoneFee] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
@@ -113,12 +123,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       const res = await fetch('/api/settings');
       const json = await res.json();
       if (json.success) {
-        const fees = json.data?.deliveryFees || {};
-        const draft: Record<string, string> = {};
-        DELIVERY_CITIES.forEach((c) => {
-          draft[c] = typeof fees[c] === 'number' ? String(fees[c]) : '';
-        });
-        setDeliveryFeesDraft(draft);
+        setDeliveryZones(Array.isArray(json.data?.deliveryZones) ? json.data.deliveryZones : []);
+        setPickupAddress(json.data?.pickupAddress || '');
       }
     } catch (e) {
       // silencieux, les champs resteront vides
@@ -134,19 +140,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, activeTab]);
 
+  const handleAddZone = () => {
+    const fee = parseInt(newZoneFee, 10);
+    if (!newZoneName.trim() || isNaN(fee) || fee < 0) return;
+    setDeliveryZones((prev) => [
+      ...prev,
+      { id: `zone-${Date.now()}`, city: newZoneCity, zoneName: newZoneName.trim(), feeFcfa: fee },
+    ]);
+    setNewZoneName('');
+    setNewZoneFee('');
+  };
+
+  const handleRemoveZone = (id: string) => {
+    setDeliveryZones((prev) => prev.filter((z) => z.id !== id));
+  };
+
   const handleSaveSettings = async () => {
     setSettingsSaving(true);
     setSettingsMsg(null);
-    const deliveryFees: Record<string, number> = {};
-    Object.entries(deliveryFeesDraft).forEach(([city, val]) => {
-      const num = parseInt(val, 10);
-      if (!isNaN(num) && num >= 0) deliveryFees[city] = num;
-    });
     try {
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: { deliveryFees }, adminPassword: passwordInput }),
+        body: JSON.stringify({
+          settings: { deliveryZones, pickupAddress: pickupAddress.trim() },
+          adminPassword: passwordInput,
+        }),
       });
       const json = await res.json();
       setSettingsMsg(json.success ? 'Paramètres enregistrés ✓' : json.error || 'Erreur lors de l\'enregistrement.');
@@ -987,58 +1006,109 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Tab Content: Settings */}
       {activeTab === 'settings' && (
-        <div className="space-y-4 font-sans max-w-2xl">
-          <div className="p-4 rounded-xl bg-cyan-50 border border-cyan-200 flex items-start gap-2.5">
-            <Truck className="w-5 h-5 text-cyan-700 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-sm font-mono font-bold text-cyan-900">Frais de Livraison par Ville</h3>
-              <p className="text-xs text-cyan-800 mt-1">
-                Laisse un champ vide pour une ville si tu préfères communiquer le tarif toi-même au client
-                après la commande, plutôt que de l'afficher automatiquement sur le site.
-              </p>
-            </div>
+        <div className="space-y-6 font-sans max-w-2xl">
+          {/* Pickup Address */}
+          <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
+            <h3 className="text-sm font-mono font-bold text-slate-900 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-amber-600" />
+              <span>Adresse du Point de Retrait</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              Affichée aux clients qui choisissent "Retrait en boutique". Laisse vide pour ne pas proposer cette option.
+            </p>
+            <input
+              type="text"
+              placeholder="Ex: Secteur 15, Ouagadougou, près de la pharmacie X"
+              value={pickupAddress}
+              onChange={(e) => setPickupAddress(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-amber-500"
+            />
           </div>
 
-          {settingsLoading ? (
-            <p className="text-xs text-slate-400 font-mono">Chargement...</p>
-          ) : (
-            <div className="space-y-3">
-              {DELIVERY_CITIES.map((city) => (
-                <div key={city} className="flex items-center gap-3">
-                  <label className="flex-1 text-sm text-slate-700">{city}</label>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Non défini"
-                      value={deliveryFeesDraft[city] ?? ''}
-                      onChange={(e) =>
-                        setDeliveryFeesDraft((prev) => ({ ...prev, [city]: e.target.value }))
-                      }
-                      className="w-32 px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-sm font-mono focus:outline-none focus:border-amber-500"
-                    />
-                    <span className="text-xs text-slate-500 font-mono">FCFA</span>
-                  </div>
-                </div>
-              ))}
-
-              <div className="pt-3 border-t border-slate-200 flex items-center gap-3">
-                <button
-                  onClick={handleSaveSettings}
-                  disabled={settingsSaving}
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-mono font-bold uppercase flex items-center gap-1.5 disabled:opacity-60"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{settingsSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
-                </button>
-                {settingsMsg && (
-                  <span className={`text-xs font-mono ${settingsMsg.includes('✓') ? 'text-emerald-700' : 'text-red-600'}`}>
-                    {settingsMsg}
-                  </span>
-                )}
+          {/* Delivery Zones */}
+          <div className="p-4 rounded-xl bg-cyan-50 border border-cyan-200 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <Truck className="w-5 h-5 text-cyan-700 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-mono font-bold text-cyan-900">Frais de Livraison par Zone/Quartier</h3>
+                <p className="text-xs text-cyan-800 mt-1">
+                  Ajoute autant de zones que tu veux par ville (ex: "Ouagadougou - Centre" et "Ouagadougou -
+                  Périphérie" avec des tarifs différents). Si aucune zone n'existe pour une ville, le tarif sera
+                  "communiqué après" sur le site.
+                </p>
               </div>
             </div>
-          )}
+
+            {settingsLoading ? (
+              <p className="text-xs text-slate-400 font-mono">Chargement...</p>
+            ) : (
+              <>
+                {deliveryZones.length > 0 && (
+                  <div className="space-y-1.5">
+                    {deliveryZones.map((zone) => (
+                      <div key={zone.id} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-cyan-200 text-xs">
+                        <span className="font-mono font-bold text-slate-700 w-28 truncate">{zone.city}</span>
+                        <span className="flex-1 text-slate-600 truncate">{zone.zoneName}</span>
+                        <span className="font-mono text-amber-800 font-bold shrink-0">{zone.feeFcfa.toLocaleString('fr-FR')} FCFA</span>
+                        <button onClick={() => handleRemoveZone(zone.id)} className="text-slate-400 hover:text-red-600 shrink-0">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.5fr_1fr_auto] gap-1.5 items-center pt-2 border-t border-cyan-200">
+                  <select
+                    value={newZoneCity}
+                    onChange={(e) => setNewZoneCity(e.target.value)}
+                    className="px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900"
+                  >
+                    {DELIVERY_CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Nom de la zone (ex: Centre-ville)"
+                    value={newZoneName}
+                    onChange={(e) => setNewZoneName(e.target.value)}
+                    className="px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="FCFA"
+                    value={newZoneFee}
+                    onChange={(e) => setNewZoneFee(e.target.value)}
+                    className="px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 font-mono"
+                  />
+                  <button
+                    onClick={handleAddZone}
+                    className="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-mono font-bold flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Ajouter
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSaveSettings}
+              disabled={settingsSaving}
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-mono font-bold uppercase flex items-center gap-1.5 disabled:opacity-60"
+            >
+              <Save className="w-4 h-4" />
+              <span>{settingsSaving ? 'Enregistrement...' : 'Enregistrer les Paramètres'}</span>
+            </button>
+            {settingsMsg && (
+              <span className={`text-xs font-mono ${settingsMsg.includes('✓') ? 'text-emerald-700' : 'text-red-600'}`}>
+                {settingsMsg}
+              </span>
+            )}
+          </div>
         </div>
       )}
 

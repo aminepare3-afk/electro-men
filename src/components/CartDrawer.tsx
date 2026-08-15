@@ -22,6 +22,13 @@ import { CartItem, PastOrder, Product } from '../types';
 import { getThumbnail, getFinalPrice } from '../utils/product';
 import { MOBILE_MONEY_CONFIG, isMobileMoneyEnabled } from '../config/mobileMoney';
 
+interface DeliveryZone {
+  id: string;
+  city: string;
+  zoneName: string;
+  feeFcfa: number;
+}
+
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,7 +40,8 @@ interface CartDrawerProps {
   favoriteProducts?: Product[];
   onToggleFavorite?: (productId: string) => void;
   onSelectProduct?: (product: Product) => void;
-  deliveryFees?: Record<string, number>;
+  deliveryZones?: DeliveryZone[];
+  pickupAddress?: string;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -47,13 +55,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   favoriteProducts = [],
   onToggleFavorite,
   onSelectProduct,
-  deliveryFees = {},
+  deliveryZones = [],
+  pickupAddress = '',
 }) => {
   const [activeTab, setActiveTab] = useState<'cart' | 'history' | 'favorites'>('cart');
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('Ouagadougou');
   const [neighborhood, setNeighborhood] = useState('');
+  const [selectedZoneId, setSelectedZoneId] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'Livraison à domicile' | 'Retrait en boutique'>('Livraison à domicile');
   const [orderNotes, setOrderNotes] = useState('');
   const [honeypot, setHoneypot] = useState(''); // champ piège anti-bot, invisible pour un humain
@@ -104,15 +114,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!pickupAddress && deliveryMethod === 'Retrait en boutique') {
+      setDeliveryMethod('Livraison à domicile');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupAddress]);
+
   if (!isOpen) return null;
 
   const subtotalFcfa = cart.reduce((sum, item) => sum + getFinalPrice(item.product) * item.quantity, 0);
-  // Frais de livraison : configurés par l'admin (Paramètres). S'il n'y a rien pour cette ville,
-  // on ne facture rien automatiquement — le montant sera communiqué directement par ELECTRO MEN.
+  // Frais de livraison : configurés par l'admin (Paramètres), par zone/quartier au sein d'une ville.
+  // Si aucune zone n'est configurée pour la ville choisie, le montant sera communiqué directement par ELECTRO MEN.
   const isPickup = deliveryMethod === 'Retrait en boutique';
-  const configuredFee = deliveryFees[city];
-  const deliveryFeeKnown = isPickup || typeof configuredFee === 'number';
-  const deliveryFee = isPickup ? 0 : configuredFee ?? 0;
+  const zonesForCity = deliveryZones.filter((z) => z.city === city);
+  const selectedZone = zonesForCity.find((z) => z.id === selectedZoneId);
+  const deliveryFeeKnown = isPickup || !!selectedZone;
+  const deliveryFee = isPickup ? 0 : selectedZone?.feeFcfa ?? 0;
   const totalFcfa = subtotalFcfa + deliveryFee;
 
   // Save order to LocalStorage history (for the customer's own "mes commandes" view on this device)
@@ -568,7 +586,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <label className="block text-slate-600 mb-0.5">Ville</label>
                           <select
                             value={city}
-                            onChange={(e) => setCity(e.target.value)}
+                            onChange={(e) => {
+                              setCity(e.target.value);
+                              setSelectedZoneId('');
+                            }}
                             className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
                           >
                             <option value="Ouagadougou">Ouagadougou</option>
@@ -581,7 +602,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-slate-600 mb-0.5">Quartier / Repère</label>
+                          <label className="block text-slate-600 mb-0.5">Repère précis</label>
                           <input
                             type="text"
                             placeholder="Ex: Kalgondin..."
@@ -591,6 +612,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           />
                         </div>
                       </div>
+
+                      {!isPickup && zonesForCity.length > 0 && (
+                        <div>
+                          <label className="block text-slate-600 mb-0.5">Zone de Livraison</label>
+                          <select
+                            value={selectedZoneId}
+                            onChange={(e) => setSelectedZoneId(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
+                          >
+                            <option value="">Sélectionner votre zone...</option>
+                            {zonesForCity.map((z) => (
+                              <option key={z.id} value={z.id}>
+                                {z.zoneName} — {z.feeFcfa.toLocaleString('fr-FR')} FCFA
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                       {/* Use my current location */}
                       <div>
@@ -650,8 +689,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-sans focus:outline-none focus:border-amber-500 focus:bg-white"
                         >
                           <option value="Livraison à domicile">Livraison à domicile</option>
-                          <option value="Retrait en boutique">Retrait en boutique</option>
+                          {pickupAddress && <option value="Retrait en boutique">Retrait en boutique</option>}
                         </select>
+                        {isPickup && pickupAddress && (
+                          <p className="mt-1.5 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 flex items-start gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span>{pickupAddress}</span>
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -931,9 +976,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       : 'Communiqué après'}
                   </span>
                 </div>
-                {!deliveryFeeKnown && (
+                {!isPickup && !deliveryFeeKnown && (
                   <p className="text-[10px] text-slate-500 italic">
-                    Les frais de livraison vers {city} vous seront communiqués directement par ELECTRO MEN.
+                    {zonesForCity.length > 0
+                      ? 'Sélectionnez votre zone de livraison ci-dessus pour voir le tarif.'
+                      : `Les frais de livraison vers ${city} vous seront communiqués directement par ELECTRO MEN.`}
                   </p>
                 )}
               </div>

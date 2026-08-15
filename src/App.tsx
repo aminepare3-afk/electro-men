@@ -192,7 +192,8 @@ export default function App() {
   // Admin Product Operations — synced with Supabase via /api/products
   const [dbError, setDbError] = useState<string | null>(null);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
+  const [deliveryZones, setDeliveryZones] = useState<{ id: string; city: string; zoneName: string; feeFcfa: number }[]>([]);
+  const [pickupAddress, setPickupAddress] = useState('');
 
   const fetchProducts = async () => {
     try {
@@ -217,7 +218,8 @@ export default function App() {
       const res = await fetch('/api/settings');
       const json = await res.json();
       if (json.success) {
-        setDeliveryFees(json.data?.deliveryFees || {});
+        setDeliveryZones(Array.isArray(json.data?.deliveryZones) ? json.data.deliveryZones : []);
+        setPickupAddress(json.data?.pickupAddress || '');
       }
     } catch (e) {
       console.error('Erreur chargement paramètres:', e);
@@ -679,7 +681,8 @@ export default function App() {
         onAddToCart={handleAddToCart}
         favoriteProducts={products.filter((p) => favoriteIds.includes(p.id))}
         onToggleFavorite={handleToggleFavorite}
-        deliveryFees={deliveryFees}
+        deliveryZones={deliveryZones}
+        pickupAddress={pickupAddress}
         onSelectProduct={(p) => {
           setSelectedProduct(p);
           setIsCartOpen(false);
