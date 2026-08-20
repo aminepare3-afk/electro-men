@@ -491,6 +491,27 @@ app.patch("/api/orders", async (req: express.Request, res: express.Response) => 
   }
 });
 
+// DELETE an order (admin only)
+app.delete("/api/orders", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { id } = req.body || {};
+  if (!id) {
+    return res.status(400).json({ success: false, error: "ID manquant." });
+  }
+  try {
+    const { error } = await supabase!.from("orders").delete().eq("id", id);
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    console.error("[DELETE /api/orders]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
 // Adds contact info (email) to an order after checkout — public, but scoped to one order ID the
 // customer already received, so it cannot be used to browse or edit other people's orders.
 app.post("/api/orders/contact", async (req: express.Request, res: express.Response) => {

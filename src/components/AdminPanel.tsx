@@ -330,6 +330,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
+    if (!window.confirm(`Supprimer définitivement la commande ${orderNumber} ? Cette action est irréversible.`)) {
+      return;
+    }
+    const previousOrders = orders;
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, adminPassword: passwordInput }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setOrders(previousOrders); // repli si la suppression a échoué côté serveur
+        alert(json.error || 'Erreur lors de la suppression de la commande.');
+      }
+    } catch (e) {
+      setOrders(previousOrders);
+      alert('Impossible de contacter le serveur.');
+    }
+  };
+
   // Import CSV/Excel state
   const importFileRef = useRef<HTMLInputElement>(null);
   const [importPreview, setImportPreview] = useState<ParsedImportResult | null>(null);
@@ -1155,6 +1178,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <Send className="w-3.5 h-3.5" />
                         <span>WhatsApp</span>
                       </a>
+                      <button
+                        onClick={() => handleDeleteOrder(order.id, order.orderNumber)}
+                        className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                        title="Supprimer cette commande"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
