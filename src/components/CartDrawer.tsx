@@ -93,6 +93,55 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [reorderToast, setReorderToast] = useState<string | null>(null);
 
+  // Live order status tracking (fetched from the server, per order number)
+  const [liveStatuses, setLiveStatuses] = useState<Record<string, { status: string; loading: boolean; error?: string }>>({});
+  const [trackOrderNumber, setTrackOrderNumber] = useState('');
+  const [trackPhone, setTrackPhone] = useState('');
+  const [trackResult, setTrackResult] = useState<{ loading: boolean; error?: string; order?: any } | null>(null);
+
+  const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+    new: { label: '🆕 Nouvelle — en attente de traitement', color: 'text-cyan-700 bg-cyan-50 border-cyan-200' },
+    contacted: { label: '📞 Vous avez été contacté', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+    confirmed: { label: '✅ Confirmée — en préparation', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+    delivered: { label: '📦 Livrée', color: 'text-slate-700 bg-slate-100 border-slate-300' },
+    cancelled: { label: '❌ Annulée', color: 'text-red-700 bg-red-50 border-red-200' },
+  };
+
+  const fetchLiveStatus = async (orderNumber: string, phone: string) => {
+    setLiveStatuses((prev) => ({ ...prev, [orderNumber]: { status: prev[orderNumber]?.status || '', loading: true } }));
+    try {
+      const res = await fetch(
+        `/api/orders/track?orderNumber=${encodeURIComponent(orderNumber)}&phone=${encodeURIComponent(phone)}`
+      );
+      const json = await res.json();
+      if (json.success) {
+        setLiveStatuses((prev) => ({ ...prev, [orderNumber]: { status: json.order.status, loading: false } }));
+      } else {
+        setLiveStatuses((prev) => ({ ...prev, [orderNumber]: { status: '', loading: false, error: json.error } }));
+      }
+    } catch (e) {
+      setLiveStatuses((prev) => ({ ...prev, [orderNumber]: { status: '', loading: false, error: 'Connexion impossible.' } }));
+    }
+  };
+
+  const handleTrackManualOrder = async () => {
+    if (!trackOrderNumber.trim() || !trackPhone.trim()) return;
+    setTrackResult({ loading: true });
+    try {
+      const res = await fetch(
+        `/api/orders/track?orderNumber=${encodeURIComponent(trackOrderNumber.trim())}&phone=${encodeURIComponent(trackPhone.trim())}`
+      );
+      const json = await res.json();
+      if (json.success) {
+        setTrackResult({ loading: false, order: json.order });
+      } else {
+        setTrackResult({ loading: false, error: json.error });
+      }
+    } catch (e) {
+      setTrackResult({ loading: false, error: 'Connexion impossible.' });
+    }
+  };
+
   // Load orders from localStorage
   const loadOrderHistory = () => {
     try {
@@ -319,7 +368,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 h-dvh">
-        <div className="w-screen max-w-md h-dvh bg-white border-l border-slate-200 text-slate-900 flex flex-col shadow-2xl">
+        <div className="w-screen max-w-md h-dvh bg-white border-l border-slate-200 text-slate-900 flex flex-col shadow-2xl overflow-x-hidden">
           
           {/* Drawer Header */}
           <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
@@ -356,6 +405,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </p>
                 <p className="text-xs text-slate-500 mt-2 max-w-xs mx-auto">
                   Nous avons bien reçu votre commande et nous vous contacterons très vite pour confirmer la livraison.
+                </p>
+                <p className="text-[11px] text-cyan-700 mt-2 max-w-xs mx-auto">
+                  📍 Suivez son statut à tout moment dans l'onglet <strong>Historique</strong> du panier.
                 </p>
               </div>
 
@@ -751,7 +803,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       )}
 
                       {/* Honeypot anti-bot : invisible et inaccessible pour un humain, seuls les bots le remplissent */}
-                      <div className="absolute -left-[9999px] opacity-0 pointer-events-none" aria-hidden="true">
+                      <div className="absolute w-0 h-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
                         <label htmlFor="website">Ne pas remplir ce champ</label>
                         <input
                           type="text"
@@ -841,6 +893,48 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </p>
               </div>
 
+              {/* Manual order tracking (useful from another device, or after clearing local data) */}
+              <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-xl space-y-2">
+                <div className="font-bold font-mono uppercase text-[11px] text-cyan-950 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-cyan-700" />
+                  <span>Suivre une commande</span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="N° Commande (CMD-XXXXXX)"
+                    value={trackOrderNumber}
+                    onChange={(e) => setTrackOrderNumber(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 bg-white border border-cyan-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-cyan-500"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Téléphone utilisé"
+                    value={trackPhone}
+                    onChange={(e) => setTrackPhone(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 bg-white border border-cyan-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-cyan-500"
+                  />
+                  <button
+                    onClick={handleTrackManualOrder}
+                    disabled={!trackOrderNumber.trim() || !trackPhone.trim() || trackResult?.loading}
+                    className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-mono font-bold disabled:opacity-50 shrink-0"
+                  >
+                    {trackResult?.loading ? '...' : 'Suivre'}
+                  </button>
+                </div>
+                {trackResult?.error && (
+                  <p className="text-[11px] text-red-600">{trackResult.error}</p>
+                )}
+                {trackResult?.order && (
+                  <div className={`p-2 rounded-lg border text-xs font-mono ${STATUS_LABELS[trackResult.order.status]?.color || 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                    {STATUS_LABELS[trackResult.order.status]?.label || trackResult.order.status}
+                    <span className="block text-[10px] mt-0.5 opacity-80 font-sans">
+                      Total : {trackResult.order.totalFcfa?.toLocaleString('fr-FR')} FCFA
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {pastOrders.length === 0 ? (
                 <div className="py-12 flex flex-col items-center justify-center text-center text-slate-500 space-y-3 font-mono">
                   <Package className="w-12 h-12 text-slate-300" />
@@ -876,7 +970,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           {/* Order Card Header */}
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-mono font-bold text-xs text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded border border-amber-200">
                                   #{order.id}
                                 </span>
@@ -885,9 +979,34 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                               <div className="text-xs font-sans text-slate-700 mt-1 font-medium">
                                 {order.customerName} {order.city ? `(${order.city})` : ''}
                               </div>
+
+                              {/* Live status */}
+                              <div className="mt-1.5">
+                                {liveStatuses[order.id]?.status ? (
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                                      STATUS_LABELS[liveStatuses[order.id].status]?.color || 'bg-slate-50 border-slate-200 text-slate-700'
+                                    }`}
+                                  >
+                                    {STATUS_LABELS[liveStatuses[order.id].status]?.label || liveStatuses[order.id].status}
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => order.phone && fetchLiveStatus(order.id, order.phone)}
+                                    disabled={!order.phone || liveStatuses[order.id]?.loading}
+                                    className="text-[10px] font-mono text-cyan-700 hover:underline disabled:opacity-50 disabled:no-underline"
+                                  >
+                                    {liveStatuses[order.id]?.loading
+                                      ? 'Vérification...'
+                                      : liveStatuses[order.id]?.error
+                                      ? `⚠️ ${liveStatuses[order.id].error}`
+                                      : '🔄 Voir le statut en direct'}
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="text-right">
+                            <div className="text-right shrink-0">
                               <span className="text-xs font-mono text-slate-400 block">TOTAL</span>
                               <span className="text-sm font-bold font-mono text-slate-900">
                                 {order.totalFcfa.toLocaleString('fr-FR')} FCFA

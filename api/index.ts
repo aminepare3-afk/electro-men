@@ -1,5 +1,6 @@
 import express from "express";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import webpush from "web-push";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -7,6 +8,38 @@ app.use(express.json({ limit: "50mb" }));
 const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "Electron").trim();
+
+const VAPID_PUBLIC_KEY = (process.env.VAPID_PUBLIC_KEY || "BBBREOYEVnxerRHczIgqH_5NEj6bJ2Fr6833VuIwguQLNG1GXoP-6UX6-oDxj1vdbsSAwubFD0KnJ5ZcgvSHnvI").trim();
+const VAPID_PRIVATE_KEY = (process.env.VAPID_PRIVATE_KEY || "vGv9vS2kXVSLkM977vMZZDI0IyalsMOtI6-Kl4YIBTI").trim();
+webpush.setVapidDetails("mailto:contact@electro-men.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
+/** Envoie une notification push à tous les admins abonnés. Ignore silencieusement les échecs. */
+async function notifyAdminsOfNewOrder(order: any): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { data: subs } = await supabase.from("push_subscriptions").select("id, data");
+    if (!subs || subs.length === 0) return;
+    const payload = JSON.stringify({
+      title: "🛒 Nouvelle commande ELECTRO MEN",
+      body: `${order.customerName} — ${Number(order.totalFcfa).toLocaleString("fr-FR")} FCFA (${order.orderNumber})`,
+      url: "/?admin=1",
+    });
+    await Promise.all(
+      subs.map(async (row: any) => {
+        try {
+          await webpush.sendNotification(row.data, payload);
+        } catch (err: any) {
+          // Abonnement expiré ou invalide (410/404) -> on le supprime pour ne plus réessayer.
+          if (err?.statusCode === 410 || err?.statusCode === 404) {
+            await supabase!.from("push_subscriptions").delete().eq("id", row.id);
+          }
+        }
+      })
+    );
+  } catch (e) {
+    console.error("[Push Notify]", e);
+  }
+}
 
 let supabase: SupabaseClient | null = null;
 let supabaseInitError: string | null = null;
@@ -326,9 +359,87 @@ app.post("/api/orders", async (req: express.Request, res: express.Response) => {
       }
     }
 
+    // Notify admins in the background — never block or fail the order on notification errors.
+    notifyAdminsOfNewOrder(record).catch((e) => console.error("[Push Notify]", e));
+
     return res.status(200).json({ success: true, id, orderNumber });
   } catch (e: any) {
     console.error("[POST /api/orders]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+// PUBLIC VAPID key — needed by the browser to create a push subscription
+app.get("/api/push/vapid-public-key", (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+// Save a push subscription (admin only — only the admin's browser subscribes to order alerts)
+app.post("/api/push/subscribe", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const subscription = req.body?.subscription;
+  if (!subscription?.endpoint) {
+    return res.status(400).json({ success: false, error: "Abonnement invalide." });
+  }
+  try {
+    const { error } = await supabase!
+      .from("push_subscriptions")
+      .upsert({ id: subscription.endpoint, data: subscription }, { onConflict: "id" });
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    console.error("[POST /api/push/subscribe]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+// Remove a push subscription (admin only)
+app.post("/api/push/unsubscribe", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const endpoint = req.body?.endpoint;
+  if (!endpoint) {
+    return res.status(400).json({ success: false, error: "Endpoint requis." });
+  }
+  try {
+    await supabase!.from("push_subscriptions").delete().eq("id", endpoint);
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    console.error("[POST /api/push/unsubscribe]", e);
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+// TRACK an order (public — scoped by order number + phone match, so a customer can check their
+// own order status without needing admin access, but can't browse other people's orders).
+app.get("/api/orders/track", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const orderNumber = String(req.query.orderNumber || "").trim();
+  const phone = String(req.query.phone || "").trim();
+  if (!orderNumber || !phone) {
+    return res.status(400).json({ success: false, error: "Numéro de commande et téléphone requis." });
+  }
+  try {
+    const { data, error } = await supabase!
+      .from("orders")
+      .select("data")
+      .eq("data->>orderNumber", orderNumber)
+      .maybeSingle();
+    if (error || !data?.data) {
+      return res.status(404).json({ success: false, error: "Commande introuvable. Vérifiez le numéro de commande." });
+    }
+    const normalize = (s: string) => String(s || "").replace(/[^\d]/g, "");
+    if (normalize(data.data.phone) !== normalize(phone)) {
+      return res.status(403).json({ success: false, error: "Le numéro de téléphone ne correspond pas à cette commande." });
+    }
+    return res.status(200).json({ success: true, order: data.data });
+  } catch (e: any) {
+    console.error("[GET /api/orders/track]", e);
     return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
   }
 });

@@ -11,6 +11,12 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
+        injectManifest: {
+          globPatterns: ['**/*.{js,css,html,ico,png,jpg,svg}'],
+        },
         includeAssets: ['logo.jpg'],
         manifest: {
           name: 'ELECTRO MEN - Composants Électroniques & Sourcing',
@@ -39,32 +45,6 @@ export default defineConfig(() => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
-            },
-          ],
-        },
-        workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,jpg,svg}'],
-          navigateFallbackDenylist: [/\/api\//, /\/share\//],
-          runtimeCaching: [
-            {
-              // Affiche instantanément la version en cache pendant que la nouvelle est récupérée en fond —
-              // idéal pour quelqu'un de pressé sur une connexion lente.
-              urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/api/products'),
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'products-cache',
-                expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 },
-              },
-            },
-            {
-              // Photos produits hébergées sur Supabase Storage : rarement modifiées une fois publiées,
-              // donc on les garde en cache longue durée pour un chargement instantané au retour.
-              urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/storage/v1/object/public/'),
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'product-images-cache',
-                expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              },
             },
           ],
         },

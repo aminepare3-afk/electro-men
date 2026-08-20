@@ -1,10 +1,48 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck } from 'lucide-react';
+import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
 import { compressImageWithThumbnail } from '../utils/imageCompression';
 import { exportProductsToCsv, downloadCsvTemplate, parseProductsCsv, ParsedImportResult, exportOrdersToCsv } from '../utils/csvImportExport';
+
+/** Construit un message de contact soigné et complet reprenant tous les détails de la commande. */
+function buildOrderContactMessage(order: Order): string {
+  const itemsList = order.items.map((it) => `• ${it.name} x${it.quantity} — ${(it.unitPrice * it.quantity).toLocaleString('fr-FR')} FCFA`).join('\n');
+  const statusLabel: Record<string, string> = {
+    new: 'reçue et en cours de traitement',
+    contacted: 'en cours de confirmation',
+    confirmed: 'confirmée et en préparation',
+    delivered: 'livrée',
+    cancelled: 'annulée',
+  };
+
+  return `Bonjour ${order.customerName} 👋
+
+Merci pour votre commande *${order.orderNumber}* chez ELECTRO MEN !
+
+🛒 Détail de votre commande :
+${itemsList}
+
+💰 Total : ${order.totalFcfa.toLocaleString('fr-FR')} FCFA
+📍 Livraison : ${order.city}${order.neighborhood ? ' - ' + order.neighborhood : ''} (${order.deliveryMethod || 'à confirmer'})
+
+Votre commande est actuellement ${statusLabel[order.status] || 'en cours de traitement'}.
+
+N'hésitez pas à nous contacter pour toute question.
+ELECTRO MEN — Composants Électroniques & Sourcing
++226 65 48 47 38`;
+}
+
+function buildOrderWhatsAppLink(order: Order): string {
+  const phone = order.phone.replace(/[^\d]/g, '');
+  return `https://wa.me/${phone}?text=${encodeURIComponent(buildOrderContactMessage(order))}`;
+}
+
+function buildOrderEmailLink(order: Order): string {
+  const subject = `Votre commande ${order.orderNumber} — ELECTRO MEN`;
+  return `mailto:${order.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(buildOrderContactMessage(order))}`;
+}
 
 interface AdminPanelProps {
   products: Product[];
@@ -196,6 +234,88 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
+
+  // ---- Push notifications (fonctionnent même si le site n'est pas ouvert) ----
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  const urlBase64ToUint8Array = (base64String: string): Uint8Array => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  };
+
+  const checkPushSubscription = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      const registration = await navigator.serviceWorker.ready;
+      const sub = await registration.pushManager.getSubscription();
+      setPushSubscribed(!!sub);
+    } catch (e) {
+      // silencieux
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) checkPushSubscription();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  const handleEnablePushNotifications = async () => {
+    setPushLoading(true);
+    setPushError(null);
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setPushError("Les notifications push ne sont pas supportées sur cet appareil/navigateur.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setPushError("Permission refusée. Autorisez les notifications dans les réglages du navigateur.");
+        return;
+      }
+      const registration = await navigator.serviceWorker.ready;
+      const keyRes = await fetch('/api/push/vapid-public-key');
+      const { publicKey } = await keyRes.json();
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription, adminPassword: passwordInput }),
+      });
+      setPushSubscribed(true);
+    } catch (e: any) {
+      setPushError(e?.message || "Impossible d'activer les notifications.");
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleDisablePushNotifications = async () => {
+    setPushLoading(true);
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const sub = await registration.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint, adminPassword: passwordInput }),
+        });
+        await sub.unsubscribe();
+      }
+      setPushSubscribed(false);
+    } catch (e) {
+      // silencieux
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
@@ -864,9 +984,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Tab Content: Orders */}
       {activeTab === 'orders' && (
         <div className="space-y-4 font-sans">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h3 className="text-sm font-mono font-bold uppercase text-slate-800">Commandes Reçues</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {pushSubscribed ? (
+                <button
+                  onClick={handleDisablePushNotifications}
+                  disabled={pushLoading}
+                  className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-mono font-bold flex items-center gap-1.5"
+                  title="Cliquez pour désactiver"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Notifications Activées ✓</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleEnablePushNotifications}
+                  disabled={pushLoading}
+                  className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-mono font-bold flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>{pushLoading ? 'Activation...' : 'Activer les Notifications'}</span>
+                </button>
+              )}
               <button
                 onClick={() => exportOrdersToCsv(orders)}
                 disabled={orders.length === 0}
@@ -885,6 +1025,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </div>
           </div>
+
+          {pushError && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-mono flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{pushError}</span>
+            </div>
+          )}
 
           {ordersError && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-mono flex items-center gap-2">
@@ -987,15 +1134,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <span className="text-sm font-black text-amber-800 font-mono">
                       {order.totalFcfa.toLocaleString('fr-FR')} FCFA
                     </span>
-                    <a
-                      href={`https://wa.me/${order.phone.replace(/[^\d]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono font-bold flex items-center gap-1.5"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Contacter le Client</span>
-                    </a>
+                    <div className="flex items-center gap-1.5">
+                      {order.email && (
+                        <a
+                          href={buildOrderEmailLink(order)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-xs font-mono font-bold flex items-center gap-1.5"
+                          title={`Envoyer un email à ${order.email}`}
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Email</span>
+                        </a>
+                      )}
+                      <a
+                        href={buildOrderWhatsAppLink(order)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono font-bold flex items-center gap-1.5"
+                        title="Ouvrir WhatsApp avec un message pré-rempli"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
               ))}
