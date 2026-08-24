@@ -561,7 +561,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           alt={item.product.name}
                           loading="lazy"
                           decoding="async"
-                          className="w-14 h-14 object-cover rounded-lg bg-white border border-slate-200 shrink-0"
+                          className="w-14 h-14 object-contain rounded-lg bg-white border border-slate-200 shrink-0 p-1"
                           onError={(e) => {
                             (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
                           }}
@@ -843,7 +843,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       src={getThumbnail(product)}
                       alt={product.name}
                       loading="lazy"
-                      className="w-14 h-14 object-cover rounded-lg bg-white border border-slate-200 shrink-0 cursor-pointer"
+                      className="w-14 h-14 object-contain rounded-lg bg-white border border-slate-200 shrink-0 cursor-pointer p-1"
                       onClick={() => onSelectProduct?.(product)}
                       onError={(e) => {
                         (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');

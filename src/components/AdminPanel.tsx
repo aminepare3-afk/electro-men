@@ -1436,7 +1436,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {newImages.map((img, idx) => (
                   <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-amber-400 bg-slate-100">
-                    <img src={img} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={img} alt={`Photo ${idx + 1}`} className="w-full h-full object-contain p-1" />
                     {idx === 0 && (
                       <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-mono font-bold">
                         Principale

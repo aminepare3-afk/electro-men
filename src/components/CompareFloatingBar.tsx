@@ -45,7 +45,7 @@ export const CompareFloatingBar: React.FC<CompareFloatingBarProps> = ({
                   <img
                     src={getThumbnail(p)}
                     alt={p.mpn}
-                    className="w-6 h-6 object-cover rounded bg-white flex-shrink-0"
+                    className="w-6 h-6 object-contain rounded bg-white flex-shrink-0 p-0.5"
                     onError={(e) => {
                       (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
                     }}
