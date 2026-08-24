@@ -5,6 +5,7 @@ import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
 import { compressImageWithThumbnail } from '../utils/imageCompression';
 import { exportProductsToCsv, downloadCsvTemplate, parseProductsCsv, ParsedImportResult, exportOrdersToCsv } from '../utils/csvImportExport';
+import { AdminDashboardHome } from './AdminDashboardHome';
 
 /** Construit un message de contact soigné et complet reprenant tous les détails de la commande. */
 function buildOrderContactMessage(order: Order): string {
@@ -70,7 +71,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'products' | 'add' | 'orders' | 'settings'>('products');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'settings'>('dashboard');
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -714,6 +715,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Tabs */}
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-3">
         <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold transition-all ${
+            activeTab === 'dashboard'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          Dashboard
+        </button>
+
+        <button
           onClick={() => {
             resetForm();
             setActiveTab('products');
@@ -768,6 +780,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <span>Paramètres</span>
         </button>
       </div>
+
+      {/* Tab Content 0: Dashboard */}
+      {activeTab === 'dashboard' && (
+        <AdminDashboardHome
+          products={products}
+          orders={orders}
+          ordersLoading={ordersLoading}
+          onGoToOrders={() => setActiveTab('orders')}
+          onGoToProducts={() => setActiveTab('products')}
+        />
+      )}
 
       {/* Tab Content 1: Products Inventory Table */}
       {activeTab === 'products' && (
