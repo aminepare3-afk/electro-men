@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell } from 'lucide-react';
+import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
 import { compressImageWithThumbnail } from '../utils/imageCompression';
 import { exportProductsToCsv, downloadCsvTemplate, parseProductsCsv, ParsedImportResult, exportOrdersToCsv } from '../utils/csvImportExport';
 import { AdminDashboardHome } from './AdminDashboardHome';
+import { OperationsPanel } from './OperationsPanel';
 
 /** Construit un message de contact soigné et complet reprenant tous les détails de la commande. */
 function buildOrderContactMessage(order: Order): string {
@@ -71,7 +72,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'settings'>('dashboard');
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -769,6 +770,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('operations')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'operations'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Briefcase className="w-4 h-4" />
+          <span>Opérations</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
             activeTab === 'settings'
@@ -789,8 +802,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           ordersLoading={ordersLoading}
           onGoToOrders={() => setActiveTab('orders')}
           onGoToProducts={() => setActiveTab('products')}
+          onGoToOperations={() => setActiveTab('operations')}
         />
       )}
+
+      {/* Tab Content: Operations */}
+      {activeTab === 'operations' && <OperationsPanel />}
 
       {/* Tab Content 1: Products Inventory Table */}
       {activeTab === 'products' && (

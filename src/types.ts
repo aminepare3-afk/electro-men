@@ -69,6 +69,29 @@ export interface PastOrder {
   items: CartItem[];
 }
 
+export type OperationStatus = 'open' | 'funded' | 'in_progress' | 'closed' | 'cancelled';
+
+/**
+ * Une opération d'importation financée par des participants.
+ * TODO(backend): ce type doit correspondre à la table `operations` en base
+ * une fois le schéma financement participatif créé (voir plan d'étapes).
+ * Tant que ce backend n'existe pas, les opérations créées ici sont stockées
+ * localement (brouillon admin) et ne représentent pas des fonds réellement engagés.
+ */
+export interface Operation {
+  id: string;
+  reference: string; // ex: OP-2026-A4X
+  title: string;
+  description?: string;
+  targetAmountFcfa: number;
+  collectedAmountFcfa: number; // TODO(backend): doit provenir de la somme des participations réelles
+  status: OperationStatus;
+  startDate: string;
+  endDate?: string;
+  participantsCount: number; // TODO(backend): doit provenir du compte réel des participations
+  createdAt: string;
+}
+
 export interface CustomSourcingRequest {
   id: string;
   customerName: string;

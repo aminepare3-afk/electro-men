@@ -19,6 +19,7 @@ interface AdminDashboardHomeProps {
   ordersLoading: boolean;
   onGoToOrders: () => void;
   onGoToProducts: () => void;
+  onGoToOperations: () => void;
 }
 
 /** Petite carte KPI générique, dans le langage visuel existant de l'admin (slate/amber, mono). */
@@ -71,6 +72,7 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
   ordersLoading,
   onGoToOrders,
   onGoToProducts,
+  onGoToOperations,
 }) => {
   const stats = useMemo(() => {
     const activeOrders = orders.filter((o) => o.status !== 'cancelled');
@@ -151,7 +153,9 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <ComingSoonCard icon={<Landmark className="w-4 h-4" />} label="Capital collecté" note="Module Finance non branché" />
-          <ComingSoonCard icon={<Briefcase className="w-4 h-4" />} label="Opérations actives" note="Module Opérations non branché" />
+          <button onClick={onGoToOperations} className="text-left">
+            <ComingSoonCard icon={<Briefcase className="w-4 h-4" />} label="Opérations actives" note="Voir le module Opérations →" />
+          </button>
           <ComingSoonCard icon={<Users className="w-4 h-4" />} label="Participants" note="Comptes participants inexistants" />
           <ComingSoonCard icon={<TrendingUp className="w-4 h-4" />} label="Bénéfices / pertes" note="Ledger non branché" />
         </div>
