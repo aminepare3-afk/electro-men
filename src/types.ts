@@ -92,6 +92,32 @@ export interface Operation {
   createdAt: string;
 }
 
+export type ImportOrderStatus = 'draft' | 'ordered' | 'in_transit' | 'customs' | 'received' | 'cancelled';
+
+/**
+ * Une commande d'importation auprès d'un fournisseur, rattachée (optionnellement) à une opération.
+ * TODO(backend): table `import_orders` + `import_costs`, avec réception qui vient incrémenter
+ * le stock produit réel (table `products`) une fois validée côté serveur.
+ */
+export interface ImportOrder {
+  id: string;
+  reference: string; // ex: IMP-2026-A4X
+  operationId?: string; // lien optionnel vers une Operation
+  supplierName: string;
+  productDescription: string;
+  quantity: number;
+  purchasePriceFcfa: number; // prix d'achat total
+  transportFeeFcfa: number;
+  customsFeeFcfa: number;
+  taxFeeFcfa: number;
+  otherFeesFcfa: number;
+  status: ImportOrderStatus;
+  orderDate: string;
+  expectedReceptionDate?: string;
+  receivedDate?: string;
+  createdAt: string;
+}
+
 export interface CustomSourcingRequest {
   id: string;
   customerName: string;
