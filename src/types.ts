@@ -154,6 +154,40 @@ export interface Distribution {
   confirmedAt?: string;
 }
 
+export type LedgerEntryType = 'deposit' | 'participation' | 'profit' | 'loss' | 'refund' | 'withdrawal' | 'adjustment';
+
+/**
+ * TODO(backend): table `ledger_entries`, écritures immuables (append-only) — une correction
+ * ne doit jamais supprimer une ligne existante, seulement ajouter une écriture d'ajustement
+ * référençant l'écriture corrigée, avec justification et auteur (voir audit_log).
+ */
+export interface LedgerEntry {
+  id: string;
+  type: LedgerEntryType;
+  participantName: string;
+  operationReference?: string;
+  amountFcfa: number; // positif = crédit, négatif = débit
+  date: string;
+  reference: string;
+}
+
+export type AuditActionType = 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'login';
+
+/**
+ * TODO(backend): table `audit_log`, écrite automatiquement côté serveur à chaque action
+ * sensible (création/modif d'opération, changement de statut de retrait, etc.), jamais
+ * modifiable depuis le frontend.
+ */
+export interface AuditLogEntry {
+  id: string;
+  actorName: string;
+  action: AuditActionType;
+  resource: string;
+  date: string;
+  previousValue?: string;
+  newValue?: string;
+}
+
 export interface CustomSourcingRequest {
   id: string;
   customerName: string;
