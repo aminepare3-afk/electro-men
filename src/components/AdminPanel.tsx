@@ -14,6 +14,10 @@ import { LedgerPanel } from './LedgerPanel';
 import { AuditPanel } from './AuditPanel';
 import { ParticipantsPanel } from './ParticipantsPanel';
 import { ReportsPanel } from './ReportsPanel';
+import { NotificationsPanel } from './NotificationsPanel';
+import { ContentPanel } from './ContentPanel';
+import { UsersPanel } from './UsersPanel';
+import { DocumentsPanel } from './DocumentsPanel';
 
 /** Construit un message de contact soigné et complet reprenant tous les détails de la commande. */
 function buildOrderContactMessage(order: Order): string {
@@ -79,7 +83,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'withdrawals' | 'distributions' | 'ledger' | 'participants' | 'audit' | 'reports' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'withdrawals' | 'distributions' | 'ledger' | 'participants' | 'audit' | 'reports' | 'notifications' | 'content' | 'users' | 'documents' | 'settings'>('dashboard');
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -873,6 +877,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('notifications')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'notifications'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          <span>Notifications</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('content')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'content'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Contenu</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'users'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Utilisateurs</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'documents'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <FileUp className="w-4 h-4" />
+          <span>Documents</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
             activeTab === 'settings'
@@ -896,6 +948,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onGoToOperations={() => setActiveTab('operations')}
         />
       )}
+
+      {/* Tab Content: Notifications */}
+      {activeTab === 'notifications' && <NotificationsPanel orders={orders} products={products} />}
+
+      {/* Tab Content: Content */}
+      {activeTab === 'content' && <ContentPanel />}
+
+      {/* Tab Content: Users */}
+      {activeTab === 'users' && <UsersPanel />}
+
+      {/* Tab Content: Documents */}
+      {activeTab === 'documents' && <DocumentsPanel />}
 
       {/* Tab Content: Reports */}
       {activeTab === 'reports' && <ReportsPanel products={products} orders={orders} />}
