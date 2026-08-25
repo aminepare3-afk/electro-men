@@ -188,6 +188,33 @@ export interface AuditLogEntry {
   newValue?: string;
 }
 
+export type ParticipationStatus = 'active' | 'closed' | 'cancelled';
+
+/**
+ * TODO(backend): la participation d'un participant à une opération, calculée et
+ * sécurisée côté serveur (jamais modifiable depuis le frontend).
+ */
+export interface Participation {
+  id: string;
+  operationReference: string;
+  operationTitle: string;
+  amountFcfa: number;
+  date: string;
+  status: ParticipationStatus;
+  resultFcfa?: number; // bénéfice (positif) ou perte (négatif), une fois connu
+}
+
+/**
+ * TODO(backend): profil + solde d'un compte participant (table `participants` + `wallets`),
+ * lié à un vrai compte utilisateur (Supabase Auth), distinct du mot de passe admin partagé.
+ */
+export interface ParticipantWallet {
+  availableBalanceFcfa: number;
+  engagedAmountFcfa: number;
+  totalProfitFcfa: number;
+  totalLossFcfa: number;
+}
+
 export interface CustomSourcingRequest {
   id: string;
   customerName: string;

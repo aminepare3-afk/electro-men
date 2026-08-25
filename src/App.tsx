@@ -8,6 +8,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { CompareModal } from './components/CompareModal';
 import { CompareFloatingBar } from './components/CompareFloatingBar';
 import { AdminPanel } from './components/AdminPanel';
+import { InvestorPanel } from './components/InvestorPanel';
 import { Product, CartItem } from './types';
 import { INITIAL_PRODUCTS, CATEGORIES, DEMO_SAMPLE_PRODUCTS } from './data/initialData';
 import { Logo } from './components/Logo';
@@ -77,6 +78,7 @@ export default function App() {
   const [sourcingMpnInfo, setSourcingMpnInfo] = useState<{ mpn: string; name: string; category: string; priceEst?: number } | undefined>(undefined);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isInvestorOpen, setIsInvestorOpen] = useState(false);
 
   // Comparison State
   const [compareProducts, setCompareProducts] = useState<Product[]>([]);
@@ -120,6 +122,10 @@ export default function App() {
       const hash = window.location.hash.toLowerCase();
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         setIsAdminOpen(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      if (path === '/investor' || hash === '#investor' || hash === '#/investor') {
+        setIsInvestorOpen(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
@@ -392,6 +398,17 @@ export default function App() {
       setIsAdminOpen(true);
       setSearchQuery('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (
+      clean === 'investor' ||
+      clean === '/investor' ||
+      clean === 'investor/' ||
+      clean === '/investor/' ||
+      clean === '#investor' ||
+      clean === '?investor'
+    ) {
+      setIsInvestorOpen(true);
+      setSearchQuery('');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       setSearchQuery(query);
     }
@@ -400,6 +417,13 @@ export default function App() {
   const handleCloseAdmin = () => {
     setIsAdminOpen(false);
     if (window.location.pathname.toLowerCase().includes('admin')) {
+      window.history.replaceState({}, '', '/');
+    }
+  };
+
+  const handleCloseInvestor = () => {
+    setIsInvestorOpen(false);
+    if (window.location.pathname.toLowerCase().includes('investor')) {
       window.history.replaceState({}, '', '/');
     }
   };
@@ -419,6 +443,37 @@ export default function App() {
       if (input) (input as HTMLInputElement).focus();
     }
   };
+
+  // Dedicated Standalone Investor View (No storefront elements shown)
+  if (isInvestorOpen) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="cursor-pointer" onClick={handleCloseInvestor}>
+              <Logo size="md" />
+            </div>
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-800 font-mono text-xs uppercase font-bold">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+              Espace Participant
+            </span>
+          </div>
+
+          <button
+            onClick={handleCloseInvestor}
+            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono text-xs uppercase font-bold flex items-center gap-2 border border-slate-300 transition-all shadow-sm"
+          >
+            <ArrowLeft className="w-4 h-4 text-amber-600" />
+            <span>Retourner à la Boutique</span>
+          </button>
+        </header>
+
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+          <InvestorPanel />
+        </main>
+      </div>
+    );
+  }
 
   // Dedicated Standalone Admin View (No storefront elements shown)
   if (isAdminOpen) {
