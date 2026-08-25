@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase, Landmark, TrendingUp, BookOpen, Users, History } from 'lucide-react';
+import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase, Landmark, TrendingUp, BookOpen, Users, History, FileBarChart } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
@@ -13,6 +13,7 @@ import { DistributionsPanel } from './DistributionsPanel';
 import { LedgerPanel } from './LedgerPanel';
 import { AuditPanel } from './AuditPanel';
 import { ParticipantsPanel } from './ParticipantsPanel';
+import { ReportsPanel } from './ReportsPanel';
 
 /** Construit un message de contact soigné et complet reprenant tous les détails de la commande. */
 function buildOrderContactMessage(order: Order): string {
@@ -78,7 +79,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'withdrawals' | 'distributions' | 'ledger' | 'participants' | 'audit' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'withdrawals' | 'distributions' | 'ledger' | 'participants' | 'audit' | 'reports' | 'settings'>('dashboard');
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -860,6 +861,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('reports')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'reports'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <FileBarChart className="w-4 h-4" />
+          <span>Rapports</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
             activeTab === 'settings'
@@ -883,6 +896,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onGoToOperations={() => setActiveTab('operations')}
         />
       )}
+
+      {/* Tab Content: Reports */}
+      {activeTab === 'reports' && <ReportsPanel products={products} orders={orders} />}
 
       {/* Tab Content: Participants */}
       {activeTab === 'participants' && <ParticipantsPanel orders={orders} />}

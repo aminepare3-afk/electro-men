@@ -316,3 +316,21 @@ export function exportOrdersToCsv(orders: import('../types').Order[]) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+/** Export CSV générique pour tableaux de rapports (opérations, importations, etc.) */
+export function exportRowsToCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const csvRows = [headers.join(',')];
+  for (const row of rows) {
+    csvRows.push(row.map((v) => csvEscape(String(v ?? ''))).join(','));
+  }
+  const csvContent = '\uFEFF' + csvRows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
