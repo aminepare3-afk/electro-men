@@ -136,6 +136,24 @@ export interface WithdrawalRequest {
   status: WithdrawalStatus;
 }
 
+export type DistributionStatus = 'draft' | 'validated' | 'confirmed';
+
+/**
+ * TODO(backend): table `distributions` + `distribution_lines`, calculée à partir du
+ * résultat réel d'une opération (ventes - coûts) et des participations réelles.
+ * Comme pour les retraits, aucune distribution fictive n'est stockée côté client :
+ * une distribution déplace de l'argent réel entre le ledger et les wallets participants.
+ */
+export interface Distribution {
+  id: string;
+  operationReference: string;
+  totalAmountFcfa: number;
+  participantsCount: number;
+  status: DistributionStatus;
+  createdAt: string;
+  confirmedAt?: string;
+}
+
 export interface CustomSourcingRequest {
   id: string;
   customerName: string;
