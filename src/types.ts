@@ -118,6 +118,24 @@ export interface ImportOrder {
   createdAt: string;
 }
 
+export type WithdrawalStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'completed';
+
+/**
+ * TODO(backend): table `withdrawals`, liée à un compte participant réel (table `participants`)
+ * et à un `wallet` avec solde vérifié côté serveur avant toute approbation.
+ * Le frontend ne doit JAMAIS décider qu'un retrait est valide — uniquement afficher
+ * l'état renvoyé par le backend et déclencher les actions (approuver/refuser), qui sont
+ * elles-mêmes revalidées côté serveur.
+ */
+export interface WithdrawalRequest {
+  id: string;
+  participantName: string;
+  amountFcfa: number;
+  method: string; // ex: "Mobile Money", "Virement bancaire"
+  requestedAt: string;
+  status: WithdrawalStatus;
+}
+
 export interface CustomSourcingRequest {
   id: string;
   customerName: string;

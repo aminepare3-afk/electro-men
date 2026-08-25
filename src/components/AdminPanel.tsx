@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase } from 'lucide-react';
+import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase, Landmark } from 'lucide-react';
 import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
@@ -8,6 +8,7 @@ import { exportProductsToCsv, downloadCsvTemplate, parseProductsCsv, ParsedImpor
 import { AdminDashboardHome } from './AdminDashboardHome';
 import { OperationsPanel } from './OperationsPanel';
 import { ImportOrdersPanel } from './ImportOrdersPanel';
+import { WithdrawalsPanel } from './WithdrawalsPanel';
 
 /** Construit un message de contact soigné et complet reprenant tous les détails de la commande. */
 function buildOrderContactMessage(order: Order): string {
@@ -73,7 +74,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'withdrawals' | 'settings'>('dashboard');
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -795,6 +796,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('withdrawals')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'withdrawals'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Landmark className="w-4 h-4" />
+          <span>Retraits</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('settings')}
           className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
             activeTab === 'settings'
@@ -818,6 +831,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           onGoToOperations={() => setActiveTab('operations')}
         />
       )}
+
+      {/* Tab Content: Withdrawals */}
+      {activeTab === 'withdrawals' && <WithdrawalsPanel />}
 
       {/* Tab Content: Import Orders */}
       {activeTab === 'imports' && <ImportOrdersPanel />}
