@@ -974,7 +974,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'ledger' && <LedgerPanel adminPassword={passwordInput} />}
 
       {/* Tab Content: Distributions */}
-      {activeTab === 'distributions' && <DistributionsPanel />}
+      {activeTab === 'distributions' && <DistributionsPanel adminPassword={passwordInput} />}
 
       {/* Tab Content: Withdrawals */}
       {activeTab === 'withdrawals' && <WithdrawalsPanel adminPassword={passwordInput} />}

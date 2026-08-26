@@ -1194,6 +1194,146 @@ app.patch("/api/admin/withdrawals/:id", async (req: express.Request, res: expres
   return res.status(200).json({ success: true });
 });
 
+// ---- Admin : distributions (répartition d'un résultat d'opération) ----
+
+app.get("/api/admin/distributions", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("distributions")
+    .select("*, operations(reference, title), distribution_lines(id)")
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.get("/api/admin/distributions/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data: distribution, error } = await supabase!
+    .from("distributions")
+    .select("*, operations(reference, title)")
+    .eq("id", req.params.id)
+    .single();
+  if (error || !distribution) return res.status(404).json({ success: false, error: "Distribution introuvable." });
+  const { data: lines, error: linesError } = await supabase!
+    .from("distribution_lines")
+    .select("*, participant_profiles(full_name)")
+    .eq("distribution_id", req.params.id);
+  if (linesError) return res.status(500).json({ success: false, error: linesError.message });
+  return res.status(200).json({ success: true, data: { ...distribution, lines } });
+});
+
+// Prépare une distribution : calcule la part de chaque participant au prorata de sa
+// participation active réelle. Ne touche à rien tant que ce n'est pas confirmé.
+app.post("/api/admin/distributions", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { operationId, totalResultFcfa } = req.body || {};
+  if (!operationId || totalResultFcfa === undefined || totalResultFcfa === 0) {
+    return res.status(400).json({ success: false, error: "Opération et résultat (non nul) requis." });
+  }
+  const { data: operation, error: opError } = await supabase!.from("operations").select("*").eq("id", operationId).single();
+  if (opError || !operation) return res.status(404).json({ success: false, error: "Opération introuvable." });
+  if (operation.status !== "closed") {
+    return res.status(400).json({ success: false, error: "L'opération doit être clôturée avant de préparer une distribution." });
+  }
+  const { data: participations, error: partError } = await supabase!
+    .from("participations")
+    .select("id, participant_id, amount_fcfa")
+    .eq("operation_id", operationId)
+    .eq("status", "active");
+  if (partError) return res.status(500).json({ success: false, error: partError.message });
+  if (!participations || participations.length === 0) {
+    return res.status(400).json({ success: false, error: "Aucune participation active sur cette opération." });
+  }
+  const totalCollected = participations.reduce((s, p) => s + p.amount_fcfa, 0);
+
+  const { data: distribution, error: distError } = await supabase!
+    .from("distributions")
+    .insert({ operation_id: operationId, total_amount_fcfa: totalResultFcfa, status: "draft" })
+    .select()
+    .single();
+  if (distError) return res.status(500).json({ success: false, error: distError.message });
+
+  const lines = participations.map((p) => ({
+    distribution_id: distribution.id,
+    participant_id: p.participant_id,
+    amount_fcfa: Math.round((totalResultFcfa * p.amount_fcfa) / totalCollected),
+  }));
+  const { error: linesError } = await supabase!.from("distribution_lines").insert(lines);
+  if (linesError) return res.status(500).json({ success: false, error: linesError.message });
+
+  await logAudit(null, "Admin", "create", `distributions/${distribution.id}`);
+  return res.status(200).json({ success: true, data: distribution });
+});
+
+app.patch("/api/admin/distributions/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { action } = req.body || {}; // 'validate' | 'confirm' | 'cancel'
+  if (!["validate", "confirm", "cancel"].includes(action)) {
+    return res.status(400).json({ success: false, error: "Action invalide." });
+  }
+  const { data: distribution, error: fetchError } = await supabase!
+    .from("distributions")
+    .select("*")
+    .eq("id", req.params.id)
+    .single();
+  if (fetchError || !distribution) return res.status(404).json({ success: false, error: "Distribution introuvable." });
+
+  if (action === "validate") {
+    if (distribution.status !== "draft") return res.status(400).json({ success: false, error: "Déjà traitée." });
+    await supabase!.from("distributions").update({ status: "validated" }).eq("id", req.params.id);
+    await logAudit(null, "Admin", "update", `distributions/${req.params.id}`, "draft", "validated");
+    return res.status(200).json({ success: true });
+  }
+
+  if (action === "cancel") {
+    if (distribution.status === "confirmed") return res.status(400).json({ success: false, error: "Une distribution confirmée ne peut plus être annulée." });
+    await supabase!.from("distribution_lines").delete().eq("distribution_id", req.params.id);
+    await supabase!.from("distributions").delete().eq("id", req.params.id);
+    await logAudit(null, "Admin", "delete", `distributions/${req.params.id}`);
+    return res.status(200).json({ success: true });
+  }
+
+  // action === 'confirm' — opération irréversible : écrit le grand livre pour de vrai.
+  if (distribution.status !== "validated") {
+    return res.status(400).json({ success: false, error: "La distribution doit être validée avant confirmation." });
+  }
+  const { data: lines, error: linesError } = await supabase!
+    .from("distribution_lines")
+    .select("*")
+    .eq("distribution_id", req.params.id);
+  if (linesError) return res.status(500).json({ success: false, error: linesError.message });
+
+  const { data: operation } = await supabase!.from("operations").select("reference").eq("id", distribution.operation_id).single();
+
+  for (const line of lines || []) {
+    await supabase!.from("ledger_entries").insert({
+      participant_id: line.participant_id,
+      operation_id: distribution.operation_id,
+      type: line.amount_fcfa >= 0 ? "profit" : "loss",
+      amount_fcfa: line.amount_fcfa,
+      reference: operation?.reference || distribution.operation_id,
+      note: "Distribution confirmée par l'admin.",
+    });
+    await supabase!
+      .from("participations")
+      .update({ status: "closed", result_fcfa: line.amount_fcfa })
+      .eq("participant_id", line.participant_id)
+      .eq("operation_id", distribution.operation_id);
+  }
+
+  await supabase!.from("distributions").update({ status: "confirmed", confirmed_at: new Date().toISOString() }).eq("id", req.params.id);
+  await logAudit(null, "Admin", "approve", `distributions/${req.params.id}`, "validated", "confirmed");
+  return res.status(200).json({ success: true });
+});
+
 // Global safety net: never let an unexpected crash return an opaque 500 with no info
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("[Unhandled API Error]", err);
