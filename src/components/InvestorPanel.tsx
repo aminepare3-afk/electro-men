@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { ParticipantWallet } from '../types';
 import { getCurrentParticipantWallet } from '../services/participantService';
+import { useInvestorAuth } from '../hooks/useInvestorAuth';
+import { InvestorAuthScreen } from './InvestorAuthScreen';
 
 type InvestorTab =
   | 'dashboard'
@@ -54,6 +56,7 @@ const NoAccountState: React.FC<{ note?: string }> = ({ note }) => (
 );
 
 export const InvestorPanel: React.FC = () => {
+  const auth = useInvestorAuth();
   const [activeTab, setActiveTab] = useState<InvestorTab>('dashboard');
   const [wallet, setWallet] = useState<ParticipantWallet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +66,14 @@ export const InvestorPanel: React.FC = () => {
       .then(setWallet)
       .finally(() => setLoading(false));
   }, []);
+
+  if (auth.loading && !auth.profile) {
+    return <div className="text-center py-16 text-sm text-slate-400">Chargement…</div>;
+  }
+
+  if (!auth.token || !auth.profile) {
+    return <InvestorAuthScreen auth={auth} />;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -121,7 +132,36 @@ export const InvestorPanel: React.FC = () => {
       {activeTab === 'withdrawals' && <NoAccountState note="Demande de retrait — le frontend ne validera jamais lui-même un solde ; tout est vérifié côté serveur." />}
       {activeTab === 'documents' && <NoAccountState note="Documents liés à vos opérations (factures, justificatifs) accessibles ici." />}
       {activeTab === 'notifications' && <NoAccountState note="Centre de notifications personnel, avec badge non lus." />}
-      {activeTab === 'profile' && <NoAccountState note="Connexion / création de compte participant — nécessite l'authentification Supabase (prochaine étape du plan)." />}
+      {activeTab === 'profile' && (
+        <div className="flex flex-col gap-4 max-w-md">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+            <div>
+              <span className="text-[11px] font-mono uppercase text-slate-400 font-bold">Nom complet</span>
+              <p className="text-sm font-bold text-slate-900">{auth.profile.full_name}</p>
+            </div>
+            {auth.profile.phone && (
+              <div>
+                <span className="text-[11px] font-mono uppercase text-slate-400 font-bold">Téléphone</span>
+                <p className="text-sm text-slate-700">{auth.profile.phone}</p>
+              </div>
+            )}
+            <div>
+              <span className="text-[11px] font-mono uppercase text-slate-400 font-bold">Statut du compte</span>
+              <p className="text-sm text-slate-700">{auth.profile.status}</p>
+            </div>
+            <div>
+              <span className="text-[11px] font-mono uppercase text-slate-400 font-bold">Membre depuis</span>
+              <p className="text-sm text-slate-700">{new Date(auth.profile.created_at).toLocaleDateString('fr-FR')}</p>
+            </div>
+          </div>
+          <button
+            onClick={auth.logout}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono text-xs uppercase font-bold py-2.5 rounded-xl transition-colors"
+          >
+            Se déconnecter
+          </button>
+        </div>
+      )}
     </div>
   );
 };
