@@ -1,78 +1,69 @@
 import { Operation, OperationStatus } from '../types';
 
 /**
- * TODO(backend): remplacer entièrement ce fichier par des appels à une vraie API
- * (`/api/operations`) connectée à une table Supabase `operations`, avec :
- *  - authentification par compte (pas le mot de passe admin partagé actuel) ;
- *  - `collectedAmountFcfa` et `participantsCount` calculés côté serveur à partir
- *    de la table `participations`, jamais saisis manuellement ;
- *  - journalisation de chaque création/modification dans `audit_log`.
- *
- * En attendant, les opérations créées ici sont un brouillon de travail stocké
- * dans le navigateur de l'admin (localStorage) — ce ne sont PAS des fonds
- * réellement collectés. L'UI doit toujours le préciser à l'utilisateur.
+ * Connecté au backend réel (table `operations` + `participations` via la vue
+ * `operations_with_stats`). L'écriture nécessite le mot de passe admin, comme le
+ * reste de l'admin actuel — voir migration vers de vrais comptes admin dans le plan.
  */
 
-const STORAGE_KEY = 'electro-men-operations-draft-v1';
-
-function readAll(): Operation[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Operation[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeAll(ops: Operation[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(ops));
-}
-
-function generateReference(existing: Operation[]): string {
-  const year = new Date().getFullYear();
-  const seq = existing.length + 1;
-  const code = Math.random().toString(36).slice(2, 5).toUpperCase();
-  return `OP-${year}-${String(seq).padStart(2, '0')}${code}`;
+function mapFromApi(row: any): Operation {
+  return {
+    id: row.id,
+    reference: row.reference,
+    title: row.title,
+    description: row.description || undefined,
+    targetAmountFcfa: row.target_amount_fcfa,
+    collectedAmountFcfa: Number(row.collected_amount_fcfa) || 0,
+    status: row.status,
+    startDate: row.start_date,
+    endDate: row.end_date || undefined,
+    participantsCount: Number(row.participants_count) || 0,
+    createdAt: row.created_at,
+  };
 }
 
 export async function getOperations(): Promise<Operation[]> {
-  // TODO(backend): GET /api/operations
-  return readAll().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const res = await fetch('/api/operations');
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de chargement des opérations.');
+  return (json.data || []).map(mapFromApi);
 }
 
-export async function createOperation(input: {
-  title: string;
-  description?: string;
-  targetAmountFcfa: number;
-  startDate: string;
-  endDate?: string;
-}): Promise<Operation> {
-  // TODO(backend): POST /api/operations (vérification des permissions côté serveur)
-  const all = readAll();
-  const op: Operation = {
-    id: crypto.randomUUID(),
-    reference: generateReference(all),
-    title: input.title,
-    description: input.description,
-    targetAmountFcfa: input.targetAmountFcfa,
-    collectedAmountFcfa: 0,
-    status: 'open',
-    startDate: input.startDate,
-    endDate: input.endDate,
-    participantsCount: 0,
-    createdAt: new Date().toISOString(),
-  };
-  writeAll([...all, op]);
-  return op;
+export async function createOperation(
+  adminPassword: string,
+  input: {
+    title: string;
+    description?: string;
+    targetAmountFcfa: number;
+    startDate: string;
+    endDate?: string;
+  }
+): Promise<Operation> {
+  const res = await fetch('/api/operations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify(input),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || "Erreur de création de l'opération.");
+  return mapFromApi(json.data);
 }
 
-export async function updateOperationStatus(id: string, status: OperationStatus): Promise<void> {
-  // TODO(backend): PATCH /api/operations/:id (+ entrée audit_log)
-  const all = readAll();
-  writeAll(all.map((o) => (o.id === id ? { ...o, status } : o)));
+export async function updateOperationStatus(adminPassword: string, id: string, status: OperationStatus): Promise<void> {
+  const res = await fetch(`/api/operations/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify({ status }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de mise à jour du statut.');
 }
 
-export async function deleteOperation(id: string): Promise<void> {
-  // TODO(backend): DELETE /api/operations/:id (réservé, avec confirmation + audit)
-  writeAll(readAll().filter((o) => o.id !== id));
+export async function deleteOperation(adminPassword: string, id: string): Promise<void> {
+  const res = await fetch(`/api/operations/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-password': adminPassword },
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de suppression.');
 }

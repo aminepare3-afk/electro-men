@@ -29,7 +29,11 @@ const FILTERS: { key: 'all' | OperationStatus; label: string }[] = [
 
 const fmt = (n: number) => `${n.toLocaleString('fr-FR')} FCFA`;
 
-export const OperationsPanel: React.FC = () => {
+interface OperationsPanelProps {
+  adminPassword: string;
+}
+
+export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword }) => {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -87,7 +91,7 @@ export const OperationsPanel: React.FC = () => {
     }
     setSaving(true);
     try {
-      await createOperation({
+      await createOperation(adminPassword, {
         title: formTitle.trim(),
         description: formDescription.trim() || undefined,
         targetAmountFcfa: targetNum,
@@ -104,12 +108,12 @@ export const OperationsPanel: React.FC = () => {
 
   const handleDelete = async (op: Operation) => {
     if (!window.confirm(`Supprimer l'opération "${op.title}" (${op.reference}) ? Cette action est irréversible.`)) return;
-    await deleteOperation(op.id);
+    await deleteOperation(adminPassword, op.id);
     await load();
   };
 
   const handleStatusChange = async (op: Operation, status: OperationStatus) => {
-    await updateOperationStatus(op.id, status);
+    await updateOperationStatus(adminPassword, op.id, status);
     await load();
   };
 

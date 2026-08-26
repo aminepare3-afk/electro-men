@@ -44,7 +44,11 @@ const emptyForm = {
   expectedReceptionDate: '',
 };
 
-export const ImportOrdersPanel: React.FC = () => {
+interface ImportOrdersPanelProps {
+  adminPassword: string;
+}
+
+export const ImportOrdersPanel: React.FC<ImportOrdersPanelProps> = ({ adminPassword }) => {
   const [items, setItems] = useState<ImportOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -97,7 +101,7 @@ export const ImportOrdersPanel: React.FC = () => {
     }
     setSaving(true);
     try {
-      await createImportOrder({
+      await createImportOrder(adminPassword, {
         supplierName: form.supplierName.trim(),
         productDescription: form.productDescription.trim(),
         quantity: qty,
@@ -120,7 +124,7 @@ export const ImportOrdersPanel: React.FC = () => {
 
   const handleDelete = async (it: ImportOrder) => {
     if (!window.confirm(`Supprimer la commande "${it.reference}" (${it.supplierName}) ?`)) return;
-    await deleteImportOrder(it.id);
+    await deleteImportOrder(adminPassword, it.id);
     await load();
   };
 
@@ -128,7 +132,7 @@ export const ImportOrdersPanel: React.FC = () => {
     if (status === 'received' && !window.confirm('Marquer comme réceptionné ? Le stock produit devra être mis à jour manuellement tant que le backend n\'est pas branché.')) {
       return;
     }
-    await updateImportOrderStatus(it.id, status);
+    await updateImportOrderStatus(adminPassword, it.id, status);
     await load();
   };
 

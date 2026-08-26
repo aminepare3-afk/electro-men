@@ -980,10 +980,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'withdrawals' && <WithdrawalsPanel />}
 
       {/* Tab Content: Import Orders */}
-      {activeTab === 'imports' && <ImportOrdersPanel />}
+      {activeTab === 'imports' && <ImportOrdersPanel adminPassword={passwordInput} />}
 
       {/* Tab Content: Operations */}
-      {activeTab === 'operations' && <OperationsPanel />}
+      {activeTab === 'operations' && <OperationsPanel adminPassword={passwordInput} />}
 
       {/* Tab Content 1: Products Inventory Table */}
       {activeTab === 'products' && (

@@ -654,6 +654,246 @@ app.get("/api/health", async (req: express.Request, res: express.Response) => {
   });
 });
 
+// =====================================================================
+// FINANCEMENT PARTICIPATIF — Authentification participant + Opérations/Importations
+// =====================================================================
+// Convention conservée : le frontend ne parle jamais directement à Supabase,
+// tout passe par ce backend (clé service_role), comme pour products/orders.
+
+/** Vérifie le token Bearer d'un participant et attache son id à req. */
+async function requireParticipant(req: express.Request, res: express.Response): Promise<string | null> {
+  if (!supabase) {
+    res.status(500).json({ success: false, error: "Base de données non configurée." });
+    return null;
+  }
+  const authHeader = req.headers["authorization"] || "";
+  const token = authHeader.toString().replace(/^Bearer\s+/i, "");
+  if (!token) {
+    res.status(401).json({ success: false, error: "Non authentifié." });
+    return null;
+  }
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) {
+    res.status(401).json({ success: false, error: "Session invalide ou expirée." });
+    return null;
+  }
+  return data.user.id;
+}
+
+async function logAudit(
+  actorId: string | null,
+  actorName: string,
+  action: "create" | "update" | "delete" | "approve" | "reject" | "login",
+  resource: string,
+  previousValue?: string,
+  newValue?: string
+): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.from("audit_log").insert({
+      actor_id: actorId,
+      actor_name: actorName,
+      action,
+      resource,
+      previous_value: previousValue,
+      new_value: newValue,
+    });
+  } catch (e) {
+    console.error("[Audit Log]", e);
+  }
+}
+
+// ---- Auth participant ----
+
+app.post("/api/investor/signup", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const { email, password, fullName, phone } = req.body || {};
+  if (!email || !password || !fullName) {
+    return res.status(400).json({ success: false, error: "Email, mot de passe et nom complet sont requis." });
+  }
+  try {
+    const { data, error } = await supabase!.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (error || !data.user) {
+      return res.status(400).json({ success: false, error: error?.message || "Création du compte impossible." });
+    }
+    const { error: profileError } = await supabase!.from("participant_profiles").insert({
+      id: data.user.id,
+      full_name: fullName,
+      phone: phone || null,
+    });
+    if (profileError) {
+      return res.status(500).json({ success: false, error: profileError.message });
+    }
+    await logAudit(data.user.id, fullName, "create", "participant_profiles");
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+app.post("/api/investor/login", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ success: false, error: "Email et mot de passe requis." });
+  }
+  try {
+    const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
+    if (error || !data.session) {
+      return res.status(401).json({ success: false, error: "Email ou mot de passe incorrect." });
+    }
+    return res.status(200).json({
+      success: true,
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+app.get("/api/investor/me", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  const { data: profile, error } = await supabase!.from("participant_profiles").select("*").eq("id", userId).single();
+  if (error || !profile) {
+    return res.status(404).json({ success: false, error: "Profil participant introuvable." });
+  }
+  return res.status(200).json({ success: true, data: profile });
+});
+
+// ---- Opérations (lecture publique, écriture admin) ----
+
+app.get("/api/operations", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("operations_with_stats")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.post("/api/operations", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { title, description, targetAmountFcfa, startDate, endDate } = req.body || {};
+  if (!title || !targetAmountFcfa) {
+    return res.status(400).json({ success: false, error: "Titre et montant cible requis." });
+  }
+  const reference = `OP-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const { data, error } = await supabase!
+    .from("operations")
+    .insert({
+      reference,
+      title,
+      description: description || null,
+      target_amount_fcfa: targetAmountFcfa,
+      start_date: startDate || new Date().toISOString().slice(0, 10),
+      end_date: endDate || null,
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(null, "Admin", "create", `operations/${data.id}`);
+  return res.status(200).json({ success: true, data });
+});
+
+app.patch("/api/operations/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { status } = req.body || {};
+  const { error } = await supabase!.from("operations").update({ status, updated_at: new Date().toISOString() }).eq("id", req.params.id);
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(null, "Admin", "update", `operations/${req.params.id}`, undefined, status);
+  return res.status(200).json({ success: true });
+});
+
+app.delete("/api/operations/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { error } = await supabase!.from("operations").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(null, "Admin", "delete", `operations/${req.params.id}`);
+  return res.status(200).json({ success: true });
+});
+
+// ---- Commandes d'importation ----
+
+app.get("/api/import-orders", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!.from("import_orders").select("*").order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.post("/api/import-orders", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const b = req.body || {};
+  if (!b.supplierName || !b.productDescription || !b.quantity || !b.purchasePriceFcfa) {
+    return res.status(400).json({ success: false, error: "Champs obligatoires manquants." });
+  }
+  const reference = `IMP-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const { data, error } = await supabase!
+    .from("import_orders")
+    .insert({
+      reference,
+      operation_id: b.operationId || null,
+      supplier_name: b.supplierName,
+      product_description: b.productDescription,
+      quantity: b.quantity,
+      purchase_price_fcfa: b.purchasePriceFcfa,
+      transport_fee_fcfa: b.transportFeeFcfa || 0,
+      customs_fee_fcfa: b.customsFeeFcfa || 0,
+      tax_fee_fcfa: b.taxFeeFcfa || 0,
+      other_fees_fcfa: b.otherFeesFcfa || 0,
+      order_date: b.orderDate || new Date().toISOString().slice(0, 10),
+      expected_reception_date: b.expectedReceptionDate || null,
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(null, "Admin", "create", `import_orders/${data.id}`);
+  return res.status(200).json({ success: true, data });
+});
+
+app.patch("/api/import-orders/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { status } = req.body || {};
+  const patch: any = { status };
+  if (status === "received") patch.received_date = new Date().toISOString();
+  const { error } = await supabase!.from("import_orders").update(patch).eq("id", req.params.id);
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(null, "Admin", "update", `import_orders/${req.params.id}`, undefined, status);
+  return res.status(200).json({ success: true });
+});
+
+app.delete("/api/import-orders/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { error } = await supabase!.from("import_orders").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(null, "Admin", "delete", `import_orders/${req.params.id}`);
+  return res.status(200).json({ success: true });
+});
+
 // Global safety net: never let an unexpected crash return an opaque 500 with no info
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("[Unhandled API Error]", err);
