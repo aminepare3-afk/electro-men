@@ -894,6 +894,130 @@ app.delete("/api/import-orders/:id", async (req: express.Request, res: express.R
   return res.status(200).json({ success: true });
 });
 
+// ---- Espace participant : opérations ouvertes + demandes de participation ----
+
+app.get("/api/investor/operations", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("operations_with_stats")
+    .select("*")
+    .in("status", ["open", "funded", "in_progress"])
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.post("/api/investor/participate", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  const { operationId, amountFcfa, paymentMethod, paymentReference } = req.body || {};
+  if (!operationId || !amountFcfa || amountFcfa <= 0 || !paymentMethod) {
+    return res.status(400).json({ success: false, error: "Opération, montant et moyen de paiement requis." });
+  }
+  // Vérifie que l'opération existe et est bien ouverte au financement.
+  const { data: op, error: opError } = await supabase!.from("operations").select("id, status").eq("id", operationId).single();
+  if (opError || !op) return res.status(404).json({ success: false, error: "Opération introuvable." });
+  if (!["open", "funded"].includes(op.status)) {
+    return res.status(400).json({ success: false, error: "Cette opération n'accepte plus de nouvelles participations." });
+  }
+  const { data, error } = await supabase!
+    .from("participations")
+    .insert({
+      operation_id: operationId,
+      participant_id: userId,
+      amount_fcfa: amountFcfa,
+      status: "pending", // reste hors des stats collectées tant que l'admin n'a pas confirmé le paiement réel
+      payment_method: paymentMethod,
+      payment_reference: paymentReference || null,
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(userId, "Participant", "create", `participations/${data.id}`);
+  return res.status(200).json({ success: true, data });
+});
+
+app.get("/api/investor/participations", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  const { data, error } = await supabase!
+    .from("participations")
+    .select("*, operations(reference, title)")
+    .eq("participant_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+// ---- Admin : gestion des comptes participants et validation des participations ----
+
+app.get("/api/admin/participants", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!.from("participant_profiles").select("*").order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.get("/api/admin/participations", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("participations")
+    .select("*, operations(reference, title), participant_profiles(full_name, phone)")
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+// Confirme (paiement réellement reçu, vérifié manuellement par l'admin) ou rejette une participation.
+app.patch("/api/admin/participations/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { decision } = req.body || {}; // 'confirm' | 'reject'
+  if (!["confirm", "reject"].includes(decision)) {
+    return res.status(400).json({ success: false, error: "Décision invalide." });
+  }
+  const { data: participation, error: fetchError } = await supabase!
+    .from("participations")
+    .select("*")
+    .eq("id", req.params.id)
+    .single();
+  if (fetchError || !participation) return res.status(404).json({ success: false, error: "Participation introuvable." });
+  if (participation.status !== "pending") {
+    return res.status(400).json({ success: false, error: "Cette participation a déjà été traitée." });
+  }
+
+  const newStatus = decision === "confirm" ? "active" : "cancelled";
+  const { error: updateError } = await supabase!
+    .from("participations")
+    .update({ status: newStatus, reviewed_at: new Date().toISOString() })
+    .eq("id", req.params.id);
+  if (updateError) return res.status(500).json({ success: false, error: updateError.message });
+
+  // Écriture au grand livre uniquement quand le paiement est réellement confirmé.
+  if (decision === "confirm") {
+    const { data: op } = await supabase!.from("operations").select("reference").eq("id", participation.operation_id).single();
+    await supabase!.from("ledger_entries").insert({
+      participant_id: participation.participant_id,
+      operation_id: participation.operation_id,
+      type: "participation",
+      amount_fcfa: participation.amount_fcfa,
+      reference: op?.reference || participation.operation_id,
+      note: "Participation confirmée par l'admin après vérification du paiement.",
+    });
+  }
+
+  await logAudit(null, "Admin", decision === "confirm" ? "approve" : "reject", `participations/${req.params.id}`, "pending", newStatus);
+  return res.status(200).json({ success: true });
+});
+
 // Global safety net: never let an unexpected crash return an opaque 500 with no info
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("[Unhandled API Error]", err);

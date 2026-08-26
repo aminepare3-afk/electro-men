@@ -188,7 +188,7 @@ export interface AuditLogEntry {
   newValue?: string;
 }
 
-export type ParticipationStatus = 'active' | 'closed' | 'cancelled';
+export type ParticipationStatus = 'pending' | 'active' | 'closed' | 'cancelled';
 
 /**
  * TODO(backend): la participation d'un participant à une opération, calculée et
@@ -202,6 +202,9 @@ export interface Participation {
   date: string;
   status: ParticipationStatus;
   resultFcfa?: number; // bénéfice (positif) ou perte (négatif), une fois connu
+  paymentMethod?: string;
+  paymentReference?: string;
+  participantName?: string; // rempli côté admin uniquement (jointure)
 }
 
 /**

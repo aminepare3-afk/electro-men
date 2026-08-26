@@ -241,3 +241,28 @@ create policy "participant reads own withdrawals" on public.withdrawals
 -- Aucune policy INSERT/UPDATE/DELETE pour les participants : toute écriture
 -- passe obligatoirement par le backend (clé service_role), qui applique les
 -- règles métier (validation de solde, calculs serveur, etc.).
+
+-- =====================================================================
+-- MIGRATION 2 — file d'attente de participation (paiement à confirmer par l'admin)
+-- =====================================================================
+-- Un participant déclare vouloir investir (comme une commande boutique avec
+-- paiement mobile money) ; ça reste en 'pending' et hors des statistiques
+-- collectées tant qu'un admin n'a pas confirmé la réception réelle du paiement
+-- et basculé le statut à 'active'. Idempotent, sûr à rejouer.
+
+alter table public.participations drop constraint if exists participations_status_check;
+alter table public.participations add constraint participations_status_check
+  check (status in ('pending', 'active', 'closed', 'cancelled'));
+
+alter table public.participations alter column status set default 'pending';
+
+alter table public.participations add column if not exists payment_method text;
+alter table public.participations add column if not exists payment_reference text;
+alter table public.participations add column if not exists reviewed_by uuid references auth.users(id);
+alter table public.participations add column if not exists reviewed_at timestamptz;
+
+-- Un participant peut créer sa propre demande de participation (statut pending
+-- imposé côté backend), mais ne peut ni la valider ni en créer pour quelqu'un d'autre.
+drop policy if exists "participant creates own pending participation" on public.participations;
+create policy "participant creates own pending participation" on public.participations
+  for insert with check (auth.uid() = participant_id);

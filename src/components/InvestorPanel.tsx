@@ -15,6 +15,8 @@ import { ParticipantWallet } from '../types';
 import { getCurrentParticipantWallet } from '../services/participantService';
 import { useInvestorAuth } from '../hooks/useInvestorAuth';
 import { InvestorAuthScreen } from './InvestorAuthScreen';
+import { InvestorOperationsList } from './InvestorOperationsList';
+import { InvestorMyParticipations } from './InvestorMyParticipations';
 
 type InvestorTab =
   | 'dashboard'
@@ -80,11 +82,11 @@ export const InvestorPanel: React.FC = () => {
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
         <ShieldAlert className="w-5 h-5 text-amber-700 mt-0.5 shrink-0" />
         <div>
-          <h3 className="text-sm font-bold text-amber-900 mb-1">Espace participant — structure prête, backend à venir</h3>
+          <h3 className="text-sm font-bold text-amber-900 mb-1">Comptes et participations réels — wallet et retraits à venir</h3>
           <p className="text-xs text-amber-800/90">
-            Cette interface est construite et prête à être branchée, mais aucun compte participant réel n'existe
-            encore. Aucun montant, participation ou transaction n'est affiché tant que l'authentification et le
-            wallet ne sont pas connectés côté serveur — c'est une garantie volontaire, pas un oubli.
+            L'inscription, la connexion et l'envoi d'une demande de participation sont maintenant réels : chaque
+            demande est vérifiée manuellement par l'admin avant d'être comptée dans l'opération. Le solde du
+            portefeuille et les retraits ne sont pas encore branchés.
           </p>
         </div>
       </div>
@@ -125,8 +127,8 @@ export const InvestorPanel: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'operations' && <NoAccountState note="La liste des opérations ouvertes au financement participant s'affichera ici, avec progression et objectif." />}
-      {activeTab === 'investments' && <NoAccountState note="Historique complet de vos participations : opération, montant, date, statut, résultat." />}
+      {activeTab === 'operations' && <InvestorOperationsList token={auth.token} />}
+      {activeTab === 'investments' && <InvestorMyParticipations token={auth.token} />}
       {activeTab === 'wallet' && <NoAccountState note="Solde disponible, montant engagé, bénéfices, pertes et historique financier de votre compte." />}
       {activeTab === 'transactions' && <NoAccountState note="Table filtrable de toutes vos transactions (dépôts, participations, retraits, ajustements)." />}
       {activeTab === 'withdrawals' && <NoAccountState note="Demande de retrait — le frontend ne validera jamais lui-même un solde ; tout est vérifié côté serveur." />}

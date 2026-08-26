@@ -956,7 +956,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'content' && <ContentPanel />}
 
       {/* Tab Content: Users */}
-      {activeTab === 'users' && <UsersPanel />}
+      {activeTab === 'users' && <UsersPanel adminPassword={passwordInput} />}
 
       {/* Tab Content: Documents */}
       {activeTab === 'documents' && <DocumentsPanel />}
