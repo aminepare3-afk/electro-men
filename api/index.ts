@@ -57,6 +57,30 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
 const STORAGE_BUCKET = "product-images";
 let bucketEnsured = false;
 
+const DOCUMENTS_BUCKET = "documents";
+let documentsBucketEnsured = false;
+
+async function ensureDocumentsBucket(): Promise<void> {
+  if (!supabase || documentsBucketEnsured) return;
+  try {
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const existing = (buckets || []).find((b) => b.name === DOCUMENTS_BUCKET);
+    if (!existing) {
+      const { error: createError } = await supabase.storage.createBucket(DOCUMENTS_BUCKET, {
+        public: false, // privé : accès uniquement via URL signée générée par le backend
+        fileSizeLimit: "10MB",
+      });
+      if (createError) {
+        console.error("[Documents Bucket Create]", createError.message);
+        return;
+      }
+    }
+    documentsBucketEnsured = true;
+  } catch (e) {
+    console.error("[Documents Bucket Init]", e);
+  }
+}
+
 async function ensureStorageBucket(): Promise<void> {
   if (!supabase || bucketEnsured) return;
   try {
@@ -1332,6 +1356,95 @@ app.patch("/api/admin/distributions/:id", async (req: express.Request, res: expr
   await supabase!.from("distributions").update({ status: "confirmed", confirmed_at: new Date().toISOString() }).eq("id", req.params.id);
   await logAudit(null, "Admin", "approve", `distributions/${req.params.id}`, "validated", "confirmed");
   return res.status(200).json({ success: true });
+});
+
+// ---- Documents (factures, justificatifs) — stockage privé, URLs signées à la demande ----
+
+app.post("/api/admin/documents", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { label, fileBase64, fileName, operationId, importOrderId, participantId } = req.body || {};
+  if (!label || !fileBase64 || !fileName) {
+    return res.status(400).json({ success: false, error: "Libellé et fichier requis." });
+  }
+  try {
+    await ensureDocumentsBucket();
+    const matches = fileBase64.match(/^data:([\w/+-]+);base64,(.+)$/);
+    if (!matches) return res.status(400).json({ success: false, error: "Fichier invalide." });
+    const buffer = Buffer.from(matches[2], "base64");
+    const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${fileName}`;
+
+    const { error: uploadError } = await supabase!.storage
+      .from(DOCUMENTS_BUCKET)
+      .upload(storagePath, buffer, { contentType: matches[1], upsert: false });
+    if (uploadError) return res.status(500).json({ success: false, error: uploadError.message });
+
+    const { data, error } = await supabase!
+      .from("documents")
+      .insert({
+        label,
+        storage_path: storagePath,
+        operation_id: operationId || null,
+        import_order_id: importOrderId || null,
+        participant_id: participantId || null,
+      })
+      .select()
+      .single();
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    await logAudit(null, "Admin", "create", `documents/${data.id}`);
+    return res.status(200).json({ success: true, data });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e?.message || "Erreur serveur." });
+  }
+});
+
+async function signDocumentUrls(rows: any[]): Promise<any[]> {
+  const withUrls = [];
+  for (const row of rows) {
+    const { data } = await supabase!.storage.from(DOCUMENTS_BUCKET).createSignedUrl(row.storage_path, 3600);
+    withUrls.push({ ...row, signed_url: data?.signedUrl || null });
+  }
+  return withUrls;
+}
+
+app.get("/api/admin/documents", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("documents")
+    .select("*, operations(reference, title), participant_profiles(full_name)")
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  const withUrls = await signDocumentUrls(data || []);
+  return res.status(200).json({ success: true, data: withUrls });
+});
+
+app.delete("/api/admin/documents/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data: doc } = await supabase!.from("documents").select("storage_path").eq("id", req.params.id).single();
+  if (doc) await supabase!.storage.from(DOCUMENTS_BUCKET).remove([doc.storage_path]);
+  const { error } = await supabase!.from("documents").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(null, "Admin", "delete", `documents/${req.params.id}`);
+  return res.status(200).json({ success: true });
+});
+
+app.get("/api/investor/documents", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  const { data, error } = await supabase!
+    .from("documents")
+    .select("*, operations(reference, title)")
+    .eq("participant_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  const withUrls = await signDocumentUrls(data || []);
+  return res.status(200).json({ success: true, data: withUrls });
 });
 
 // Global safety net: never let an unexpected crash return an opaque 500 with no info

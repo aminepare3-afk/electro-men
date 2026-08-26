@@ -266,3 +266,29 @@ alter table public.participations add column if not exists reviewed_at timestamp
 drop policy if exists "participant creates own pending participation" on public.participations;
 create policy "participant creates own pending participation" on public.participations
   for insert with check (auth.uid() = participant_id);
+
+-- =====================================================================
+-- MIGRATION 3 — documents (factures fournisseurs, justificatifs)
+-- =====================================================================
+-- Stockage privé (bucket Supabase Storage "documents", non public) : les fichiers
+-- ne sont accessibles que via une URL signée générée à la demande par le backend.
+
+create table if not exists public.documents (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  storage_path text not null,
+  operation_id uuid references public.operations(id) on delete set null,
+  import_order_id uuid references public.import_orders(id) on delete set null,
+  participant_id uuid references public.participant_profiles(id) on delete set null,
+  uploaded_by uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_documents_operation on public.documents(operation_id);
+create index if not exists idx_documents_participant on public.documents(participant_id);
+
+alter table public.documents enable row level security;
+
+drop policy if exists "participant reads own documents" on public.documents;
+create policy "participant reads own documents" on public.documents
+  for select using (auth.uid() = participant_id);

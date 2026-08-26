@@ -20,6 +20,7 @@ import { InvestorMyParticipations } from './InvestorMyParticipations';
 import { InvestorWallet } from './InvestorWallet';
 import { InvestorTransactions } from './InvestorTransactions';
 import { InvestorWithdrawals } from './InvestorWithdrawals';
+import { InvestorDocuments } from './InvestorDocuments';
 
 type InvestorTab =
   | 'dashboard'
@@ -132,7 +133,7 @@ export const InvestorPanel: React.FC = () => {
       {activeTab === 'wallet' && <InvestorWallet token={auth.token} />}
       {activeTab === 'transactions' && <InvestorTransactions token={auth.token} />}
       {activeTab === 'withdrawals' && <InvestorWithdrawals token={auth.token} />}
-      {activeTab === 'documents' && <NoAccountState note="Documents liés à vos opérations (factures, justificatifs) accessibles ici." />}
+      {activeTab === 'documents' && <InvestorDocuments token={auth.token} />}
       {activeTab === 'notifications' && <NoAccountState note="Centre de notifications personnel, avec badge non lus." />}
       {activeTab === 'profile' && (
         <div className="flex flex-col gap-4 max-w-md">
