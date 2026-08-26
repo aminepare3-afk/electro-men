@@ -1018,6 +1018,182 @@ app.patch("/api/admin/participations/:id", async (req: express.Request, res: exp
   return res.status(200).json({ success: true });
 });
 
+// ---- Espace participant : wallet, transactions, retraits ----
+
+/** Calcule le solde réel d'un participant à partir du grand livre + participations actives. */
+async function computeParticipantWallet(participantId: string) {
+  const { data: entries, error: ledgerError } = await supabase!
+    .from("ledger_entries")
+    .select("type, amount_fcfa")
+    .eq("participant_id", participantId);
+  if (ledgerError) throw new Error(ledgerError.message);
+
+  const { data: activeParticipations, error: partError } = await supabase!
+    .from("participations")
+    .select("amount_fcfa")
+    .eq("participant_id", participantId)
+    .eq("status", "active");
+  if (partError) throw new Error(partError.message);
+
+  let availableBalanceFcfa = 0;
+  let totalProfitFcfa = 0;
+  let totalLossFcfa = 0;
+  for (const e of entries || []) {
+    if (e.type === "profit") totalProfitFcfa += e.amount_fcfa;
+    if (e.type === "loss") totalLossFcfa += Math.abs(e.amount_fcfa);
+    // Seuls les gains reversés, remboursements, ajustements et retraits affectent le
+    // solde disponible — une participation active reste "engagée", pas disponible.
+    if (["profit", "refund", "adjustment", "withdrawal"].includes(e.type)) {
+      availableBalanceFcfa += e.amount_fcfa;
+    }
+  }
+  const engagedAmountFcfa = (activeParticipations || []).reduce((sum, p) => sum + p.amount_fcfa, 0);
+
+  return { availableBalanceFcfa, engagedAmountFcfa, totalProfitFcfa, totalLossFcfa };
+}
+
+app.get("/api/investor/wallet", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  try {
+    const wallet = await computeParticipantWallet(userId);
+    return res.status(200).json({ success: true, data: wallet });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get("/api/investor/transactions", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  const { data, error } = await supabase!
+    .from("ledger_entries")
+    .select("*")
+    .eq("participant_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.get("/api/investor/withdrawals", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  const { data, error } = await supabase!
+    .from("withdrawals")
+    .select("*")
+    .eq("participant_id", userId)
+    .order("requested_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.post("/api/investor/withdrawals", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  const userId = await requireParticipant(req, res);
+  if (!userId) return;
+  const { amountFcfa, method } = req.body || {};
+  if (!amountFcfa || amountFcfa <= 0 || !method) {
+    return res.status(400).json({ success: false, error: "Montant et moyen de retrait requis." });
+  }
+  try {
+    // Vérification serveur du solde disponible — jamais fait côté client.
+    const wallet = await computeParticipantWallet(userId);
+    const { data: pendingWithdrawals } = await supabase!
+      .from("withdrawals")
+      .select("amount_fcfa")
+      .eq("participant_id", userId)
+      .in("status", ["pending", "processing", "approved"]);
+    const alreadyRequested = (pendingWithdrawals || []).reduce((s, w) => s + w.amount_fcfa, 0);
+    const remaining = wallet.availableBalanceFcfa - alreadyRequested;
+    if (amountFcfa > remaining) {
+      return res.status(400).json({
+        success: false,
+        error: `Solde disponible insuffisant (${remaining.toLocaleString("fr-FR")} FCFA disponible après demandes en cours).`,
+      });
+    }
+    const { data, error } = await supabase!
+      .from("withdrawals")
+      .insert({ participant_id: userId, amount_fcfa: amountFcfa, method, status: "pending" })
+      .select()
+      .single();
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    await logAudit(userId, "Participant", "create", `withdrawals/${data.id}`);
+    return res.status(200).json({ success: true, data });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ---- Admin : grand livre global + gestion des retraits ----
+
+app.get("/api/admin/ledger", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("ledger_entries")
+    .select("*, participant_profiles(full_name)")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.get("/api/admin/withdrawals", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("withdrawals")
+    .select("*, participant_profiles(full_name)")
+    .order("requested_at", { ascending: false });
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.patch("/api/admin/withdrawals/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireAdmin(req, res)) return;
+  if (!requireDb(res)) return;
+  const { decision } = req.body || {}; // 'confirm' | 'reject'
+  if (!["confirm", "reject"].includes(decision)) {
+    return res.status(400).json({ success: false, error: "Décision invalide." });
+  }
+  const { data: withdrawal, error: fetchError } = await supabase!
+    .from("withdrawals")
+    .select("*")
+    .eq("id", req.params.id)
+    .single();
+  if (fetchError || !withdrawal) return res.status(404).json({ success: false, error: "Retrait introuvable." });
+  if (withdrawal.status !== "pending") {
+    return res.status(400).json({ success: false, error: "Ce retrait a déjà été traité." });
+  }
+
+  const newStatus = decision === "confirm" ? "completed" : "rejected";
+  const { error: updateError } = await supabase!
+    .from("withdrawals")
+    .update({ status: newStatus, processed_at: new Date().toISOString() })
+    .eq("id", req.params.id);
+  if (updateError) return res.status(500).json({ success: false, error: updateError.message });
+
+  // Écriture au grand livre uniquement une fois le retrait réellement effectué.
+  if (decision === "confirm") {
+    await supabase!.from("ledger_entries").insert({
+      participant_id: withdrawal.participant_id,
+      type: "withdrawal",
+      amount_fcfa: -Math.abs(withdrawal.amount_fcfa),
+      reference: `WD-${withdrawal.id.slice(0, 8).toUpperCase()}`,
+      note: `Retrait via ${withdrawal.method}, confirmé par l'admin.`,
+    });
+  }
+
+  await logAudit(null, "Admin", decision === "confirm" ? "approve" : "reject", `withdrawals/${req.params.id}`, "pending", newStatus);
+  return res.status(200).json({ success: true });
+});
+
 // Global safety net: never let an unexpected crash return an opaque 500 with no info
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("[Unhandled API Error]", err);

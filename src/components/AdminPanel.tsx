@@ -971,13 +971,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'audit' && <AuditPanel />}
 
       {/* Tab Content: Ledger */}
-      {activeTab === 'ledger' && <LedgerPanel />}
+      {activeTab === 'ledger' && <LedgerPanel adminPassword={passwordInput} />}
 
       {/* Tab Content: Distributions */}
       {activeTab === 'distributions' && <DistributionsPanel />}
 
       {/* Tab Content: Withdrawals */}
-      {activeTab === 'withdrawals' && <WithdrawalsPanel />}
+      {activeTab === 'withdrawals' && <WithdrawalsPanel adminPassword={passwordInput} />}
 
       {/* Tab Content: Import Orders */}
       {activeTab === 'imports' && <ImportOrdersPanel adminPassword={passwordInput} />}

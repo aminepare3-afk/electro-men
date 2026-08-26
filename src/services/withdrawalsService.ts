@@ -1,23 +1,34 @@
 import { WithdrawalRequest } from '../types';
 
 /**
- * TODO(backend): GET/PATCH /api/withdrawals, connecté à Supabase (table `withdrawals`
- * + `wallets`). Toute validation de solde ou de statut doit être faite côté serveur.
- *
- * Contrairement aux modules Opérations/Importations, il n'existe volontairement PAS
- * de stockage local de brouillon ici : un retrait représente de l'argent réel dû à un
- * participant réel, donc sans compte participant ni wallet en base, il n'y a rien de
- * légitime à afficher — la liste reste vide jusqu'au branchement du backend.
+ * Connecté au backend réel (table `withdrawals`). Toute décision (confirmer/rejeter)
+ * passe par le backend, qui écrit l'entrée du grand livre uniquement à la confirmation.
  */
-export async function getWithdrawalRequests(): Promise<WithdrawalRequest[]> {
-  // TODO(backend): remplacer par un vrai appel API une fois les comptes participants créés
-  return [];
+
+function mapFromApi(row: any): WithdrawalRequest {
+  return {
+    id: row.id,
+    participantName: row.participant_profiles?.full_name || '—',
+    amountFcfa: row.amount_fcfa,
+    method: row.method,
+    requestedAt: row.requested_at,
+    status: row.status,
+  };
 }
 
-export async function approveWithdrawal(_id: string): Promise<void> {
-  throw new Error('Backend retraits non encore branché.');
+export async function getWithdrawalRequests(adminPassword: string): Promise<WithdrawalRequest[]> {
+  const res = await fetch('/api/admin/withdrawals', { headers: { 'x-admin-password': adminPassword } });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de chargement des retraits.');
+  return (json.data || []).map(mapFromApi);
 }
 
-export async function rejectWithdrawal(_id: string): Promise<void> {
-  throw new Error('Backend retraits non encore branché.');
+export async function reviewWithdrawal(adminPassword: string, id: string, decision: 'confirm' | 'reject'): Promise<void> {
+  const res = await fetch(`/api/admin/withdrawals/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify({ decision }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur lors du traitement.');
 }

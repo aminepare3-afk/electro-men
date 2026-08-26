@@ -13,15 +13,18 @@ const TYPE_LABELS: Record<LedgerEntryType, string> = {
   adjustment: 'Ajustement',
 };
 
-export const LedgerPanel: React.FC = () => {
+export const LedgerPanel: React.FC<{ adminPassword: string }> = ({ adminPassword }) => {
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getLedgerEntries()
+    getLedgerEntries(adminPassword)
       .then(setEntries)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -34,16 +37,14 @@ export const LedgerPanel: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-        <ShieldAlert className="w-5 h-5 text-amber-700 mt-0.5 shrink-0" />
-        <div>
-          <h3 className="text-sm font-bold text-amber-900 mb-1">Grand livre — lecture seule</h3>
-          <p className="text-xs text-amber-800/90">
-            Les écritures financières ne peuvent pas être supprimées depuis cette interface. Toute correction
-            passera par un mécanisme d'ajustement audité, une fois le backend ledger branché. Vide pour l'instant.
-          </p>
-        </div>
+      <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
+        <ShieldAlert className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
+        <p className="text-xs text-cyan-900">
+          Écritures réelles, en lecture seule — aucune suppression possible. Toute correction passe par une nouvelle
+          écriture d'ajustement.
+        </p>
       </div>
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3">{error}</div>}
 
       <div className="relative w-full md:w-80">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

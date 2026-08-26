@@ -17,6 +17,9 @@ import { useInvestorAuth } from '../hooks/useInvestorAuth';
 import { InvestorAuthScreen } from './InvestorAuthScreen';
 import { InvestorOperationsList } from './InvestorOperationsList';
 import { InvestorMyParticipations } from './InvestorMyParticipations';
+import { InvestorWallet } from './InvestorWallet';
+import { InvestorTransactions } from './InvestorTransactions';
+import { InvestorWithdrawals } from './InvestorWithdrawals';
 
 type InvestorTab =
   | 'dashboard'
@@ -64,10 +67,11 @@ export const InvestorPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getCurrentParticipantWallet()
+    if (!auth.token) return;
+    getCurrentParticipantWallet(auth.token)
       .then(setWallet)
       .finally(() => setLoading(false));
-  }, []);
+  }, [auth.token]);
 
   if (auth.loading && !auth.profile) {
     return <div className="text-center py-16 text-sm text-slate-400">Chargement…</div>;
@@ -79,16 +83,12 @@ export const InvestorPanel: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-        <ShieldAlert className="w-5 h-5 text-amber-700 mt-0.5 shrink-0" />
-        <div>
-          <h3 className="text-sm font-bold text-amber-900 mb-1">Comptes et participations réels — wallet et retraits à venir</h3>
-          <p className="text-xs text-amber-800/90">
-            L'inscription, la connexion et l'envoi d'une demande de participation sont maintenant réels : chaque
-            demande est vérifiée manuellement par l'admin avant d'être comptée dans l'opération. Le solde du
-            portefeuille et les retraits ne sont pas encore branchés.
-          </p>
-        </div>
+      <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
+        <ShieldAlert className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
+        <p className="text-xs text-cyan-900">
+          Compte, participations, portefeuille et retraits sont maintenant tous réels : chaque mouvement d'argent
+          (participation confirmée, retrait effectué) est vérifié manuellement par l'admin avant d'affecter ton solde.
+        </p>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -129,9 +129,9 @@ export const InvestorPanel: React.FC = () => {
 
       {activeTab === 'operations' && <InvestorOperationsList token={auth.token} />}
       {activeTab === 'investments' && <InvestorMyParticipations token={auth.token} />}
-      {activeTab === 'wallet' && <NoAccountState note="Solde disponible, montant engagé, bénéfices, pertes et historique financier de votre compte." />}
-      {activeTab === 'transactions' && <NoAccountState note="Table filtrable de toutes vos transactions (dépôts, participations, retraits, ajustements)." />}
-      {activeTab === 'withdrawals' && <NoAccountState note="Demande de retrait — le frontend ne validera jamais lui-même un solde ; tout est vérifié côté serveur." />}
+      {activeTab === 'wallet' && <InvestorWallet token={auth.token} />}
+      {activeTab === 'transactions' && <InvestorTransactions token={auth.token} />}
+      {activeTab === 'withdrawals' && <InvestorWithdrawals token={auth.token} />}
       {activeTab === 'documents' && <NoAccountState note="Documents liés à vos opérations (factures, justificatifs) accessibles ici." />}
       {activeTab === 'notifications' && <NoAccountState note="Centre de notifications personnel, avec badge non lus." />}
       {activeTab === 'profile' && (

@@ -56,9 +56,16 @@ export async function participateInOperation(
   if (!json.success) throw new Error(json.error || 'Erreur lors de la demande de participation.');
 }
 
-export async function getCurrentParticipantWallet(): Promise<ParticipantWallet | null> {
-  // TODO(backend): calcul fiable du solde une fois les dépôts/retraits réels en place
-  return null;
+export async function getCurrentParticipantWallet(token: string): Promise<ParticipantWallet | null> {
+  const res = await fetch('/api/investor/wallet', { headers: { Authorization: `Bearer ${token}` } });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de chargement du portefeuille.');
+  return {
+    availableBalanceFcfa: json.data.availableBalanceFcfa,
+    engagedAmountFcfa: json.data.engagedAmountFcfa,
+    totalProfitFcfa: json.data.totalProfitFcfa,
+    totalLossFcfa: json.data.totalLossFcfa,
+  };
 }
 
 export async function getMyParticipations(token: string): Promise<Participation[]> {
@@ -68,18 +75,41 @@ export async function getMyParticipations(token: string): Promise<Participation[
   return (json.data || []).map(mapParticipation);
 }
 
-export async function getMyTransactions(): Promise<LedgerEntry[]> {
-  // TODO(backend): GET /api/investor/transactions
-  return [];
+export async function getMyTransactions(token: string): Promise<LedgerEntry[]> {
+  const res = await fetch('/api/investor/transactions', { headers: { Authorization: `Bearer ${token}` } });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de chargement des transactions.');
+  return (json.data || []).map((row: any) => ({
+    id: row.id,
+    type: row.type,
+    participantName: '',
+    operationReference: row.operation_id || undefined,
+    amountFcfa: row.amount_fcfa,
+    date: row.created_at,
+    reference: row.reference,
+  }));
 }
 
-export async function getMyWithdrawals(): Promise<WithdrawalRequest[]> {
-  // TODO(backend): GET /api/investor/withdrawals
-  return [];
+export async function getMyWithdrawals(token: string): Promise<WithdrawalRequest[]> {
+  const res = await fetch('/api/investor/withdrawals', { headers: { Authorization: `Bearer ${token}` } });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de chargement des retraits.');
+  return (json.data || []).map((row: any) => ({
+    id: row.id,
+    participantName: '',
+    amountFcfa: row.amount_fcfa,
+    method: row.method,
+    requestedAt: row.requested_at,
+    status: row.status,
+  }));
 }
 
-export async function requestWithdrawal(_amountFcfa: number, _method: string): Promise<void> {
-  // TODO(backend): POST /api/investor/withdrawals — le frontend ne valide jamais lui-même
-  // qu'un solde est suffisant ; c'est une vérification strictement serveur.
-  throw new Error('Retraits pas encore disponibles : le calcul du solde réel n\'est pas encore branché.');
+export async function requestWithdrawal(token: string, amountFcfa: number, method: string): Promise<void> {
+  const res = await fetch('/api/investor/withdrawals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ amountFcfa, method }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur lors de la demande de retrait.');
 }
