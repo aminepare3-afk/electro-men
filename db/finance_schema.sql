@@ -95,7 +95,9 @@ create table if not exists public.import_orders (
   order_date date not null default current_date,
   expected_reception_date date,
   received_date timestamptz,
-  linked_product_id text references public.products(id) on delete set null,
+  linked_product_id text, -- référence informative vers products.id ; pas de contrainte FK
+                           -- stricte ici pour éviter un conflit de type si products.id
+                           -- n'est pas exactement `text` dans ta base existante
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
