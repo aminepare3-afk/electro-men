@@ -47,17 +47,6 @@ create table if not exists public.operations (
   updated_at timestamptz not null default now()
 );
 
--- Vue calculée : montant collecté + nombre de participants, dérivés des
--- participations réelles (jamais saisis manuellement).
-create or replace view public.operations_with_stats as
-select
-  o.*,
-  coalesce(sum(p.amount_fcfa) filter (where p.status = 'active'), 0) as collected_amount_fcfa,
-  count(distinct p.participant_id) filter (where p.status = 'active') as participants_count
-from public.operations o
-left join public.participations p on p.operation_id = o.id
-group by o.id;
-
 -- ---------------------------------------------------------------------
 -- 4. PARTICIPATIONS (un participant investit dans une opération)
 -- ---------------------------------------------------------------------
@@ -73,6 +62,18 @@ create table if not exists public.participations (
 
 create index if not exists idx_participations_operation on public.participations(operation_id);
 create index if not exists idx_participations_participant on public.participations(participant_id);
+
+-- Vue calculée : montant collecté + nombre de participants, dérivés des
+-- participations réelles (jamais saisis manuellement). Placée ici, après la
+-- création de `participations`, car elle en dépend directement.
+create or replace view public.operations_with_stats as
+select
+  o.*,
+  coalesce(sum(p.amount_fcfa) filter (where p.status = 'active'), 0) as collected_amount_fcfa,
+  count(distinct p.participant_id) filter (where p.status = 'active') as participants_count
+from public.operations o
+left join public.participations p on p.operation_id = o.id
+group by o.id;
 
 -- ---------------------------------------------------------------------
 -- 5. COMMANDES D'IMPORTATION (fournisseurs, coûts, réception)
