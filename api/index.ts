@@ -115,13 +115,34 @@ async function ensureStorageBucket(): Promise<void> {
   }
 }
 
-function requireAdmin(req: express.Request, res: express.Response): boolean {
-  const provided = req.body?.adminPassword || req.headers["x-admin-password"];
-  if (provided !== ADMIN_PASSWORD) {
-    res.status(401).json({ success: false, error: "Mot de passe administrateur incorrect." });
-    return false;
+/**
+ * Accepte DEUX méthodes d'authentification admin, en parallèle, sans rien casser :
+ *  1) L'ancien mot de passe partagé (x-admin-password) — toujours valide.
+ *  2) Un compte admin individuel réel (Supabase Auth + table admin_roles), via un
+ *     token Bearer — nouvelle méthode, à privilégier progressivement.
+ */
+async function requireAdmin(req: express.Request, res: express.Response): Promise<boolean> {
+  const providedPassword = req.body?.adminPassword || req.headers["x-admin-password"];
+  if (providedPassword === ADMIN_PASSWORD) {
+    return true;
   }
-  return true;
+
+  const authHeader = req.headers["authorization"] || "";
+  const token = authHeader.toString().replace(/^Bearer\s+/i, "");
+  if (token && supabase) {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (!error && data?.user) {
+      const { data: roleRow } = await supabase.from("admin_roles").select("role").eq("id", data.user.id).single();
+      if (roleRow) {
+        (req as any).adminRole = roleRow.role;
+        (req as any).adminUserId = data.user.id;
+        return true;
+      }
+    }
+  }
+
+  res.status(401).json({ success: false, error: "Authentification administrateur invalide." });
+  return false;
 }
 
 function requireDb(res: express.Response): boolean {
@@ -145,6 +166,86 @@ app.post("/api/admin-login", (req: express.Request, res: express.Response) => {
     return res.status(200).json({ success: true });
   }
   return res.status(401).json({ success: false });
+});
+
+// ---- Comptes admin individuels (progressivement, en plus du mot de passe partagé) ----
+
+app.post("/api/admin/accounts/login", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ success: false, error: "Email et mot de passe requis." });
+  const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
+  if (error || !data.session) return res.status(401).json({ success: false, error: "Email ou mot de passe incorrect." });
+  const { data: roleRow } = await supabase!.from("admin_roles").select("role").eq("id", data.user!.id).single();
+  if (!roleRow) return res.status(403).json({ success: false, error: "Ce compte n'a pas d'accès administrateur." });
+  await logAudit(data.user!.id, email, "login", "admin_roles");
+  return res.status(200).json({ success: true, accessToken: data.session.access_token, role: roleRow.role });
+});
+
+// Crée le tout premier compte "owner" — protégé par l'ancien mot de passe partagé,
+// pour prouver qu'on a déjà un accès admin légitime avant de migrer vers des comptes réels.
+// Se bloque tout seul dès qu'un owner existe déjà (bootstrap unique).
+app.post("/api/admin/accounts/bootstrap-owner", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const providedPassword = req.body?.adminPassword;
+  if (providedPassword !== ADMIN_PASSWORD) {
+    return res.status(401).json({ success: false, error: "Mot de passe administrateur incorrect." });
+  }
+  const { count } = await supabase!.from("admin_roles").select("id", { count: "exact", head: true }).eq("role", "owner");
+  if (count && count > 0) {
+    return res.status(400).json({ success: false, error: "Un compte owner existe déjà." });
+  }
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ success: false, error: "Email et mot de passe requis." });
+  const { data, error } = await supabase!.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error || !data.user) return res.status(400).json({ success: false, error: error?.message || "Création impossible." });
+  const { error: roleError } = await supabase!.from("admin_roles").insert({ id: data.user.id, role: "owner" });
+  if (roleError) return res.status(500).json({ success: false, error: roleError.message });
+  await logAudit(data.user.id, email, "create", "admin_roles/owner");
+  return res.status(200).json({ success: true });
+});
+
+app.get("/api/admin/accounts", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!(await requireAdmin(req, res))) return;
+  if (!requireDb(res)) return;
+  const { data: roles, error } = await supabase!.from("admin_roles").select("id, role, created_at");
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  // Récupère l'email de chaque compte via l'API Auth admin (pas stocké en clair côté DB).
+  const withEmails = [];
+  for (const r of roles || []) {
+    const { data: userData } = await supabase!.auth.admin.getUserById(r.id);
+    withEmails.push({ id: r.id, role: r.role, created_at: r.created_at, email: userData?.user?.email || "—" });
+  }
+  return res.status(200).json({ success: true, data: withEmails });
+});
+
+app.post("/api/admin/accounts", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!(await requireAdmin(req, res))) return;
+  if (!requireDb(res)) return;
+  const { email, password, role } = req.body || {};
+  if (!email || !password || !["owner", "admin", "manager", "employee"].includes(role)) {
+    return res.status(400).json({ success: false, error: "Email, mot de passe et rôle valide requis." });
+  }
+  const { data, error } = await supabase!.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error || !data.user) return res.status(400).json({ success: false, error: error?.message || "Création impossible." });
+  const { error: roleError } = await supabase!.from("admin_roles").insert({ id: data.user.id, role });
+  if (roleError) return res.status(500).json({ success: false, error: roleError.message });
+  await logAudit((req as any).adminUserId || null, "Admin", "create", `admin_roles/${data.user.id}`, undefined, role);
+  return res.status(200).json({ success: true });
+});
+
+app.delete("/api/admin/accounts/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!(await requireAdmin(req, res))) return;
+  if (!requireDb(res)) return;
+  const { error } = await supabase!.from("admin_roles").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit((req as any).adminUserId || null, "Admin", "delete", `admin_roles/${req.params.id}`);
+  return res.status(200).json({ success: true });
 });
 
 // GET all products (public read) — cached at the CDN edge for fast repeat loads
@@ -172,7 +273,7 @@ app.get("/api/products", async (req: express.Request, res: express.Response) => 
 // instead of storing the full base64 blob inline in the products table (which slows every catalogue load).
 app.post("/api/upload-image", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
 
   const imageBase64: string | undefined = req.body?.imageBase64;
@@ -210,7 +311,7 @@ app.post("/api/upload-image", async (req: express.Request, res: express.Response
 // BULK IMPORT products (admin only) — upsert en une seule requête (CSV/Excel import)
 app.post("/api/products/bulk-import", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
 
   const products = req.body?.products;
@@ -244,7 +345,7 @@ app.post("/api/products/bulk-import", async (req: express.Request, res: express.
 // CREATE product (admin only)
 app.post("/api/products", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const product = req.body?.product;
   if (!product?.id) {
@@ -265,7 +366,7 @@ app.post("/api/products", async (req: express.Request, res: express.Response) =>
 // UPDATE product (admin only)
 app.put("/api/products", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const product = req.body?.product;
   if (!product?.id) {
@@ -286,7 +387,7 @@ app.put("/api/products", async (req: express.Request, res: express.Response) => 
 // DELETE one product, or clear the whole catalogue (admin only)
 app.delete("/api/products", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
 
   try {
@@ -402,7 +503,7 @@ app.get("/api/push/vapid-public-key", (req: express.Request, res: express.Respon
 // Save a push subscription (admin only — only the admin's browser subscribes to order alerts)
 app.post("/api/push/subscribe", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const subscription = req.body?.subscription;
   if (!subscription?.endpoint) {
@@ -423,7 +524,7 @@ app.post("/api/push/subscribe", async (req: express.Request, res: express.Respon
 // Remove a push subscription (admin only)
 app.post("/api/push/unsubscribe", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const endpoint = req.body?.endpoint;
   if (!endpoint) {
@@ -471,7 +572,7 @@ app.get("/api/orders/track", async (req: express.Request, res: express.Response)
 // LIST orders (admin only — private customer data)
 app.get("/api/orders", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   try {
     const { data, error } = await supabase!
@@ -492,7 +593,7 @@ app.get("/api/orders", async (req: express.Request, res: express.Response) => {
 // UPDATE order — status change or contact info added later (admin only)
 app.patch("/api/orders", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { id, updates } = req.body || {};
   if (!id || !updates) {
@@ -518,7 +619,7 @@ app.patch("/api/orders", async (req: express.Request, res: express.Response) => 
 // DELETE an order (admin only)
 app.delete("/api/orders", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { id } = req.body || {};
   if (!id) {
@@ -634,7 +735,7 @@ app.get("/api/settings", async (req: express.Request, res: express.Response) => 
 // UPDATE store settings (admin only)
 app.put("/api/settings", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const settings = req.body?.settings;
   if (!settings || typeof settings !== "object") {
@@ -808,7 +909,7 @@ app.get("/api/operations", async (req: express.Request, res: express.Response) =
 
 app.post("/api/operations", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { title, description, targetAmountFcfa, startDate, endDate } = req.body || {};
   if (!title || !targetAmountFcfa) {
@@ -834,7 +935,7 @@ app.post("/api/operations", async (req: express.Request, res: express.Response) 
 
 app.patch("/api/operations/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { status } = req.body || {};
   const { error } = await supabase!.from("operations").update({ status, updated_at: new Date().toISOString() }).eq("id", req.params.id);
@@ -845,7 +946,7 @@ app.patch("/api/operations/:id", async (req: express.Request, res: express.Respo
 
 app.delete("/api/operations/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { error } = await supabase!.from("operations").delete().eq("id", req.params.id);
   if (error) return res.status(500).json({ success: false, error: error.message });
@@ -865,7 +966,7 @@ app.get("/api/import-orders", async (req: express.Request, res: express.Response
 
 app.post("/api/import-orders", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const b = req.body || {};
   if (!b.supplierName || !b.productDescription || !b.quantity || !b.purchasePriceFcfa) {
@@ -897,7 +998,7 @@ app.post("/api/import-orders", async (req: express.Request, res: express.Respons
 
 app.patch("/api/import-orders/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { status } = req.body || {};
   const patch: any = { status };
@@ -910,7 +1011,7 @@ app.patch("/api/import-orders/:id", async (req: express.Request, res: express.Re
 
 app.delete("/api/import-orders/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { error } = await supabase!.from("import_orders").delete().eq("id", req.params.id);
   if (error) return res.status(500).json({ success: false, error: error.message });
@@ -980,7 +1081,7 @@ app.get("/api/investor/participations", async (req: express.Request, res: expres
 
 app.get("/api/admin/participants", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data, error } = await supabase!.from("participant_profiles").select("*").order("created_at", { ascending: false });
   if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
@@ -989,7 +1090,7 @@ app.get("/api/admin/participants", async (req: express.Request, res: express.Res
 
 app.get("/api/admin/participations", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data, error } = await supabase!
     .from("participations")
@@ -1002,7 +1103,7 @@ app.get("/api/admin/participations", async (req: express.Request, res: express.R
 // Confirme (paiement réellement reçu, vérifié manuellement par l'admin) ou rejette une participation.
 app.patch("/api/admin/participations/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { decision } = req.body || {}; // 'confirm' | 'reject'
   if (!["confirm", "reject"].includes(decision)) {
@@ -1155,7 +1256,7 @@ app.post("/api/investor/withdrawals", async (req: express.Request, res: express.
 
 app.get("/api/admin/ledger", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data, error } = await supabase!
     .from("ledger_entries")
@@ -1168,7 +1269,7 @@ app.get("/api/admin/ledger", async (req: express.Request, res: express.Response)
 
 app.get("/api/admin/withdrawals", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data, error } = await supabase!
     .from("withdrawals")
@@ -1180,7 +1281,7 @@ app.get("/api/admin/withdrawals", async (req: express.Request, res: express.Resp
 
 app.patch("/api/admin/withdrawals/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { decision } = req.body || {}; // 'confirm' | 'reject'
   if (!["confirm", "reject"].includes(decision)) {
@@ -1222,7 +1323,7 @@ app.patch("/api/admin/withdrawals/:id", async (req: express.Request, res: expres
 
 app.get("/api/admin/distributions", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data, error } = await supabase!
     .from("distributions")
@@ -1234,7 +1335,7 @@ app.get("/api/admin/distributions", async (req: express.Request, res: express.Re
 
 app.get("/api/admin/distributions/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data: distribution, error } = await supabase!
     .from("distributions")
@@ -1254,7 +1355,7 @@ app.get("/api/admin/distributions/:id", async (req: express.Request, res: expres
 // participation active réelle. Ne touche à rien tant que ce n'est pas confirmé.
 app.post("/api/admin/distributions", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { operationId, totalResultFcfa } = req.body || {};
   if (!operationId || totalResultFcfa === undefined || totalResultFcfa === 0) {
@@ -1297,7 +1398,7 @@ app.post("/api/admin/distributions", async (req: express.Request, res: express.R
 
 app.patch("/api/admin/distributions/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { action } = req.body || {}; // 'validate' | 'confirm' | 'cancel'
   if (!["validate", "confirm", "cancel"].includes(action)) {
@@ -1362,7 +1463,7 @@ app.patch("/api/admin/distributions/:id", async (req: express.Request, res: expr
 
 app.post("/api/admin/documents", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { label, fileBase64, fileName, operationId, importOrderId, participantId } = req.body || {};
   if (!label || !fileBase64 || !fileName) {
@@ -1410,7 +1511,7 @@ async function signDocumentUrls(rows: any[]): Promise<any[]> {
 
 app.get("/api/admin/documents", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data, error } = await supabase!
     .from("documents")
@@ -1423,7 +1524,7 @@ app.get("/api/admin/documents", async (req: express.Request, res: express.Respon
 
 app.delete("/api/admin/documents/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
-  if (!requireAdmin(req, res)) return;
+  if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
   const { data: doc } = await supabase!.from("documents").select("storage_path").eq("id", req.params.id).single();
   if (doc) await supabase!.storage.from(DOCUMENTS_BUCKET).remove([doc.storage_path]);
