@@ -530,6 +530,10 @@ export default function App() {
           setIsSourcingOpen(true);
         }}
         onScrollToSearch={scrollToHeroSearch}
+        onOpenInvestorSpace={() => {
+          setIsInvestorOpen(true);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       {/* 3D Motion Hero Banner + Search */}

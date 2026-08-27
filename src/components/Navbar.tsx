@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Logo } from './Logo';
-import { ShoppingCart, Globe, Phone, Search, ArrowRightLeft, Share2 } from 'lucide-react';
+import { ShoppingCart, Globe, Phone, Search, ArrowRightLeft, Share2, Landmark } from 'lucide-react';
 import { CartItem } from '../types';
 import { shareContent } from '../utils/share';
 
@@ -11,6 +11,7 @@ interface NavbarProps {
   onOpenCompare?: () => void;
   onOpenSourcingModal: () => void;
   onScrollToSearch: () => void;
+  onOpenInvestorSpace: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCompare,
   onOpenSourcingModal,
   onScrollToSearch,
+  onOpenInvestorSpace,
 }) => {
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const [siteShareStatus, setSiteShareStatus] = useState<'idle' | 'copied'>('idle');
@@ -62,10 +64,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Globe className="w-4 h-4 text-cyan-600" />
             <span>Commande Sur-Mesure</span>
           </button>
+
+          <button
+            onClick={onOpenInvestorSpace}
+            className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 border border-amber-500/30 text-xs font-mono flex items-center gap-2 transition-colors font-medium"
+          >
+            <Landmark className="w-4 h-4 text-amber-600" />
+            <span>Espace Investisseur</span>
+          </button>
         </div>
 
         {/* Right Action Group */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Investor Space — visible aussi sur mobile */}
+          <button
+            onClick={onOpenInvestorSpace}
+            className="md:hidden p-2.5 rounded-xl bg-amber-500/10 text-amber-700 border border-amber-500/30"
+            title="Espace Investisseur"
+          >
+            <Landmark className="w-4 h-4" />
+          </button>
+
           {/* Share Site Button */}
           <div className="relative">
             <button
