@@ -9,6 +9,10 @@ import { CompareModal } from './components/CompareModal';
 import { CompareFloatingBar } from './components/CompareFloatingBar';
 import { AdminPanel } from './components/AdminPanel';
 import { InvestorPanel } from './components/InvestorPanel';
+import { AboutPage } from './components/AboutPage';
+import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
+import { CookiesPage } from './components/CookiesPage';
+import { TermsPage } from './components/TermsPage';
 import { Product, CartItem } from './types';
 import { INITIAL_PRODUCTS, CATEGORIES, DEMO_SAMPLE_PRODUCTS } from './data/initialData';
 import { Logo } from './components/Logo';
@@ -79,6 +83,7 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isInvestorOpen, setIsInvestorOpen] = useState(false);
+  const [legalPage, setLegalPage] = useState<'about' | 'privacy' | 'cookies' | 'terms' | null>(null);
 
   // Comparison State
   const [compareProducts, setCompareProducts] = useState<Product[]>([]);
@@ -128,6 +133,10 @@ export default function App() {
         setIsInvestorOpen(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
+      if (path === '/a-propos') setLegalPage('about');
+      if (path === '/confidentialite') setLegalPage('privacy');
+      if (path === '/cookies') setLegalPage('cookies');
+      if (path === '/cgu') setLegalPage('terms');
     };
 
     checkAdminRoute();
@@ -444,6 +453,19 @@ export default function App() {
     }
   };
 
+  const handleCloseLegalPage = () => {
+    setLegalPage(null);
+    if (['/a-propos', '/confidentialite', '/cookies', '/cgu'].includes(window.location.pathname.toLowerCase())) {
+      window.history.replaceState({}, '', '/');
+    }
+  };
+
+  // Legal / static pages (no storefront elements shown)
+  if (legalPage === 'about') return <AboutPage onClose={handleCloseLegalPage} />;
+  if (legalPage === 'privacy') return <PrivacyPolicyPage onClose={handleCloseLegalPage} />;
+  if (legalPage === 'cookies') return <CookiesPage onClose={handleCloseLegalPage} />;
+  if (legalPage === 'terms') return <TermsPage onClose={handleCloseLegalPage} />;
+
   // Dedicated Standalone Investor View (No storefront elements shown)
   if (isInvestorOpen) {
     return (
@@ -705,7 +727,13 @@ export default function App() {
 
         </div>
 
-        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-center text-[11px] font-mono text-slate-500 gap-2">
+        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-200 flex flex-col items-center justify-center text-[11px] font-mono text-slate-500 gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            <button onClick={() => setLegalPage('about')} className="hover:text-amber-700 underline-offset-2 hover:underline">À propos</button>
+            <button onClick={() => setLegalPage('privacy')} className="hover:text-amber-700 underline-offset-2 hover:underline">Confidentialité</button>
+            <button onClick={() => setLegalPage('cookies')} className="hover:text-amber-700 underline-offset-2 hover:underline">Cookies</button>
+            <button onClick={() => setLegalPage('terms')} className="hover:text-amber-700 underline-offset-2 hover:underline">CGU</button>
+          </div>
           <span>© {new Date().getFullYear()} ELECTRO MEN — Tous droits réservés.</span>
         </div>
       </footer>
