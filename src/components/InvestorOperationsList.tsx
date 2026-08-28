@@ -28,6 +28,7 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
   const [detailOp, setDetailOp] = useState<Operation | null>(null);
   const [selected, setSelected] = useState<Operation | null>(null);
   const [amount, setAmount] = useState('');
+  const [shares, setShares] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('orange_money');
   const [paymentReference, setPaymentReference] = useState('');
   const [riskAccepted, setRiskAccepted] = useState(false);
@@ -50,17 +51,20 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
     setSelected(op);
     setDetailOp(null);
     setAmount('');
+    setShares('');
     setPaymentReference('');
     setRiskAccepted(false);
     setError(null);
   };
 
+  const effectiveAmount = selected?.sharePriceFcfa ? (Number(shares) || 0) * selected.sharePriceFcfa : Number(amount);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected) return;
-    const amountNum = Number(amount);
+    const amountNum = effectiveAmount;
     if (!amountNum || amountNum <= 0) {
-      setError('Montant invalide.');
+      setError(selected.sharePriceFcfa ? 'Nombre de parts invalide.' : 'Montant invalide.');
       return;
     }
     if (!riskAccepted) {
@@ -133,6 +137,11 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
                     {op.estimatedDurationDays && (
                       <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg">
                         <Clock className="w-3 h-3" /> ~{op.estimatedDurationDays} jours
+                      </span>
+                    )}
+                    {op.sharePriceFcfa && (
+                      <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-lg font-bold">
+                        Part = {fmt(op.sharePriceFcfa)}
                       </span>
                     )}
                   </div>
@@ -257,16 +266,36 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
             <RiskWarning />
 
             <form onSubmit={submit} className="flex flex-col gap-3 mt-4">
-              <div>
-                <label className="text-xs font-mono uppercase text-slate-500 font-bold">Montant (FCFA) *</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
-                />
-              </div>
+              {selected.sharePriceFcfa ? (
+                <div>
+                  <label className="text-xs font-mono uppercase text-slate-500 font-bold">
+                    Nombre de parts * (1 part = {fmt(selected.sharePriceFcfa)})
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={shares}
+                    onChange={(e) => setShares(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                  />
+                  {Number(shares) > 0 && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Total à payer : <strong>{fmt(effectiveAmount)}</strong>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-mono uppercase text-slate-500 font-bold">Montant (FCFA) *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-xs font-mono uppercase text-slate-500 font-bold">Moyen de paiement</label>
                 <select

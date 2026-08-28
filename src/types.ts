@@ -96,6 +96,7 @@ export interface Operation {
   resaleChannel?: string; // ex: "Boutique en ligne + WhatsApp"
   riskNotes?: string; // risques spécifiques identifiés par l'admin (délai douane, fluctuation devise, etc.)
   estimatedDurationDays?: number;
+  sharePriceFcfa?: number; // si défini, le participant investit en nombre de parts (montant = parts × ce prix)
 }
 
 export type ImportOrderStatus = 'draft' | 'ordered' | 'in_transit' | 'customs' | 'received' | 'cancelled';

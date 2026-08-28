@@ -51,6 +51,7 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
   const [formResaleChannel, setFormResaleChannel] = useState('');
   const [formRiskNotes, setFormRiskNotes] = useState('');
   const [formDuration, setFormDuration] = useState('');
+  const [formSharePrice, setFormSharePrice] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -85,6 +86,7 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
     setFormResaleChannel('');
     setFormRiskNotes('');
     setFormDuration('');
+    setFormSharePrice('');
     setFormError(null);
   };
 
@@ -103,6 +105,15 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
       setFormError('Merci de décrire précisément cette opération — les participants doivent comprendre ce qu\'ils financent.');
       return;
     }
+    const sharePriceNum = formSharePrice ? Number(formSharePrice) : undefined;
+    if (formSharePrice && (!sharePriceNum || sharePriceNum <= 0)) {
+      setFormError('Le prix de la part doit être un nombre positif.');
+      return;
+    }
+    if (sharePriceNum && targetNum % sharePriceNum !== 0) {
+      setFormError('Le montant cible doit être un multiple exact du prix de la part.');
+      return;
+    }
     setSaving(true);
     try {
       await createOperation(adminPassword, {
@@ -116,6 +127,7 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
         resaleChannel: formResaleChannel.trim() || undefined,
         riskNotes: formRiskNotes.trim() || undefined,
         estimatedDurationDays: formDuration ? Number(formDuration) : undefined,
+        sharePriceFcfa: sharePriceNum,
       });
       resetForm();
       setShowCreateModal(false);
@@ -301,6 +313,22 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
                   className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
                   placeholder="Ex : 2000000"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase text-slate-500 font-bold">
+                  Prix d'une part (FCFA) — optionnel
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={formSharePrice}
+                  onChange={(e) => setFormSharePrice(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                  placeholder="Ex : 10000 (le participant investit alors en nombre de parts)"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Si rempli, le montant cible doit être un multiple exact de ce prix. Laisse vide pour un montant libre.
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

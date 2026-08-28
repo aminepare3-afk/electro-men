@@ -281,6 +281,36 @@ alter table public.operations add column if not exists estimated_duration_days i
 alter table public.participations add column if not exists risk_acknowledged_at timestamptz;
 
 -- =====================================================================
+-- MIGRATION 5 — parts (prix minimum par part) + blog communiqués/discussion
+-- =====================================================================
+
+-- Une opération peut définir un prix de part : le participant investit alors un
+-- nombre entier de parts (montant = nombre_de_parts × prix_de_la_part), au lieu
+-- d'un montant libre. Optionnel — une opération sans prix de part garde l'ancien
+-- fonctionnement (montant libre).
+alter table public.operations add column if not exists share_price_fcfa bigint;
+
+-- Communiqués (admin, visibles de tous) + discussion commune (tout le monde peut
+-- écrire). Modération : seul l'admin peut supprimer un message.
+create table if not exists public.community_posts (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid,
+  author_name text not null,
+  author_role text not null check (author_role in ('admin', 'participant')),
+  post_type text not null check (post_type in ('announcement', 'discussion')),
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_community_posts_created on public.community_posts(created_at desc);
+
+alter table public.community_posts enable row level security;
+
+drop policy if exists "everyone reads community posts" on public.community_posts;
+create policy "everyone reads community posts" on public.community_posts
+  for select using (true);
+
+-- =====================================================================
 -- MIGRATION 3 — documents (factures fournisseurs, justificatifs)
 -- =====================================================================
 -- Stockage privé (bucket Supabase Storage "documents", non public) : les fichiers

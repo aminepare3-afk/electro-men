@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase, Landmark, TrendingUp, BookOpen, Users, History, FileBarChart } from 'lucide-react';
+import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase, Landmark, TrendingUp, BookOpen, Users, History, FileBarChart, Megaphone } from 'lucide-react';
+import { CommunityFeed } from './CommunityFeed';
 import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
@@ -83,7 +84,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'withdrawals' | 'distributions' | 'ledger' | 'participants' | 'audit' | 'reports' | 'notifications' | 'content' | 'users' | 'documents' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'add' | 'orders' | 'operations' | 'imports' | 'withdrawals' | 'distributions' | 'ledger' | 'participants' | 'audit' | 'reports' | 'notifications' | 'community' | 'content' | 'users' | 'documents' | 'settings'>('dashboard');
 
   // Orders state
   const [orders, setOrders] = useState<Order[]>([]);
@@ -889,6 +890,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('community')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+            activeTab === 'community'
+              ? 'bg-amber-500 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          <Megaphone className="w-4 h-4" />
+          <span>Communauté</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('content')}
           className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
             activeTab === 'content'
@@ -951,6 +964,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Tab Content: Notifications */}
       {activeTab === 'notifications' && <NotificationsPanel orders={orders} products={products} />}
+
+      {/* Tab Content: Community (communiqués + discussion) */}
+      {activeTab === 'community' && (
+        <CommunityFeed
+          authHeaders={{ 'x-admin-password': passwordInput }}
+          adminPassword={passwordInput}
+          placeholder="Publie un communiqué visible par tous les participants..."
+        />
+      )}
 
       {/* Tab Content: Content */}
       {activeTab === 'content' && <ContentPanel />}

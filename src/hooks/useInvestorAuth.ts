@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ParticipantWallet } from '../types';
 
 const TOKEN_KEY = 'electro-men-investor-token-v1';
 
@@ -13,6 +14,7 @@ interface ParticipantProfile {
 interface AuthState {
   token: string | null;
   profile: ParticipantProfile | null;
+  wallet: ParticipantWallet | null;
   loading: boolean;
   error: string | null;
 }
@@ -25,6 +27,7 @@ export function useInvestorAuth() {
   const [state, setState] = useState<AuthState>({
     token: localStorage.getItem(TOKEN_KEY),
     profile: null,
+    wallet: null,
     loading: true,
     error: null,
   });
@@ -34,10 +37,11 @@ export function useInvestorAuth() {
       const res = await fetch('/api/investor/me', { headers: { Authorization: `Bearer ${token}` } });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Session invalide.');
-      setState({ token, profile: json.data, loading: false, error: null });
+      const { wallet, ...profile } = json.data;
+      setState({ token, profile, wallet: wallet || null, loading: false, error: null });
     } catch (e: any) {
       localStorage.removeItem(TOKEN_KEY);
-      setState({ token: null, profile: null, loading: false, error: null });
+      setState({ token: null, profile: null, wallet: null, loading: false, error: null });
     }
   }, []);
 
@@ -90,8 +94,19 @@ export function useInvestorAuth() {
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
-    setState({ token: null, profile: null, loading: false, error: null });
+    setState({ token: null, profile: null, wallet: null, loading: false, error: null });
   }, []);
 
-  return { ...state, login, signup, logout };
+  const refreshWallet = useCallback(async () => {
+    if (!state.token) return;
+    try {
+      const res = await fetch('/api/investor/wallet', { headers: { Authorization: `Bearer ${state.token}` } });
+      const json = await res.json();
+      if (json.success) setState((s) => ({ ...s, wallet: json.data }));
+    } catch {
+      // silencieux — le portefeuille se rechargera au prochain accès à /me
+    }
+  }, [state.token]);
+
+  return { ...state, login, signup, logout, refreshWallet };
 }

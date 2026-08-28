@@ -24,6 +24,7 @@ function mapFromApi(row: any): Operation {
     resaleChannel: row.resale_channel || undefined,
     riskNotes: row.risk_notes || undefined,
     estimatedDurationDays: row.estimated_duration_days ?? undefined,
+    sharePriceFcfa: row.share_price_fcfa ?? undefined,
   };
 }
 
@@ -47,6 +48,7 @@ export async function createOperation(
     resaleChannel?: string;
     riskNotes?: string;
     estimatedDurationDays?: number;
+    sharePriceFcfa?: number;
   }
 ): Promise<Operation> {
   const res = await fetch('/api/operations', {

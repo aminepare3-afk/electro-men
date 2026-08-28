@@ -24,6 +24,7 @@ function mapOperation(row: any): Operation {
     resaleChannel: row.resale_channel || undefined,
     riskNotes: row.risk_notes || undefined,
     estimatedDurationDays: row.estimated_duration_days ?? undefined,
+    sharePriceFcfa: row.share_price_fcfa ?? undefined,
   };
 }
 

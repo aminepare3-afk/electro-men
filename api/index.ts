@@ -805,6 +805,32 @@ async function requireParticipant(req: express.Request, res: express.Response): 
   return data.user.id;
 }
 
+/** Identifie soit un admin (mot de passe partagé ou compte), soit un participant connecté. */
+async function identifyAnyAuthor(
+  req: express.Request
+): Promise<{ role: "admin" | "participant"; id: string | null; name: string } | null> {
+  const providedPassword = req.body?.adminPassword || req.headers["x-admin-password"];
+  if (providedPassword === ADMIN_PASSWORD) {
+    return { role: "admin", id: null, name: "Admin ELECTRO MEN" };
+  }
+  const authHeader = req.headers["authorization"] || "";
+  const token = authHeader.toString().replace(/^Bearer\s+/i, "");
+  if (token && supabase) {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (!error && data?.user) {
+      const { data: roleRow } = await supabase.from("admin_roles").select("role").eq("id", data.user.id).single();
+      if (roleRow) {
+        return { role: "admin", id: data.user.id, name: "Admin ELECTRO MEN" };
+      }
+      const { data: profile } = await supabase.from("participant_profiles").select("full_name").eq("id", data.user.id).single();
+      if (profile) {
+        return { role: "participant", id: data.user.id, name: profile.full_name };
+      }
+    }
+  }
+  return null;
+}
+
 async function logAudit(
   actorId: string | null,
   actorName: string,
@@ -887,11 +913,20 @@ app.get("/api/investor/me", async (req: express.Request, res: express.Response) 
   res.setHeader("Content-Type", "application/json");
   const userId = await requireParticipant(req, res);
   if (!userId) return;
-  const { data: profile, error } = await supabase!.from("participant_profiles").select("*").eq("id", userId).single();
-  if (error || !profile) {
-    return res.status(404).json({ success: false, error: "Profil participant introuvable." });
+  try {
+    const [{ data: profile, error }, wallet] = await Promise.all([
+      supabase!.from("participant_profiles").select("*").eq("id", userId).single(),
+      computeParticipantWallet(userId),
+    ]);
+    if (error || !profile) {
+      return res.status(404).json({ success: false, error: "Profil participant introuvable." });
+    }
+    // Wallet inclus directement ici pour éviter un aller-retour réseau supplémentaire
+    // au chargement initial de l'espace participant (optimisation de vitesse).
+    return res.status(200).json({ success: true, data: { ...profile, wallet } });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
   }
-  return res.status(200).json({ success: true, data: profile });
 });
 
 // ---- Opérations (lecture publique, écriture admin) ----
@@ -911,7 +946,7 @@ app.post("/api/operations", async (req: express.Request, res: express.Response) 
   res.setHeader("Content-Type", "application/json");
   if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
-  const { title, description, targetAmountFcfa, startDate, endDate, productCategory, estimatedQuantity, resaleChannel, riskNotes, estimatedDurationDays } = req.body || {};
+  const { title, description, targetAmountFcfa, startDate, endDate, productCategory, estimatedQuantity, resaleChannel, riskNotes, estimatedDurationDays, sharePriceFcfa } = req.body || {};
   if (!title || !targetAmountFcfa) {
     return res.status(400).json({ success: false, error: "Titre et montant cible requis." });
   }
@@ -930,6 +965,7 @@ app.post("/api/operations", async (req: express.Request, res: express.Response) 
       resale_channel: resaleChannel || null,
       risk_notes: riskNotes || null,
       estimated_duration_days: estimatedDurationDays || null,
+      share_price_fcfa: sharePriceFcfa || null,
     })
     .select()
     .single();
@@ -1058,10 +1094,19 @@ app.post("/api/investor/participate", async (req: express.Request, res: express.
     return res.status(400).json({ success: false, error: "Tu dois confirmer avoir compris le risque de perte avant de participer." });
   }
   // Vérifie que l'opération existe et est bien ouverte au financement.
-  const { data: op, error: opError } = await supabase!.from("operations").select("id, status").eq("id", operationId).single();
+  const { data: op, error: opError } = await supabase!.from("operations").select("id, status, share_price_fcfa").eq("id", operationId).single();
   if (opError || !op) return res.status(404).json({ success: false, error: "Opération introuvable." });
   if (!["open", "funded"].includes(op.status)) {
     return res.status(400).json({ success: false, error: "Cette opération n'accepte plus de nouvelles participations." });
+  }
+  // Si un prix de part est défini, le montant doit être un multiple entier de ce prix.
+  if (op.share_price_fcfa) {
+    if (amountFcfa % op.share_price_fcfa !== 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Le montant doit être un multiple du prix d'une part (${op.share_price_fcfa.toLocaleString("fr-FR")} FCFA).`,
+      });
+    }
   }
   const { data, error } = await supabase!
     .from("participations")
@@ -1164,17 +1209,11 @@ app.patch("/api/admin/participations/:id", async (req: express.Request, res: exp
 
 /** Calcule le solde réel d'un participant à partir du grand livre + participations actives. */
 async function computeParticipantWallet(participantId: string) {
-  const { data: entries, error: ledgerError } = await supabase!
-    .from("ledger_entries")
-    .select("type, amount_fcfa")
-    .eq("participant_id", participantId);
+  const [{ data: entries, error: ledgerError }, { data: activeParticipations, error: partError }] = await Promise.all([
+    supabase!.from("ledger_entries").select("type, amount_fcfa").eq("participant_id", participantId),
+    supabase!.from("participations").select("amount_fcfa").eq("participant_id", participantId).eq("status", "active"),
+  ]);
   if (ledgerError) throw new Error(ledgerError.message);
-
-  const { data: activeParticipations, error: partError } = await supabase!
-    .from("participations")
-    .select("amount_fcfa")
-    .eq("participant_id", participantId)
-    .eq("status", "active");
   if (partError) throw new Error(partError.message);
 
   let availableBalanceFcfa = 0;
@@ -1563,6 +1602,57 @@ app.get("/api/investor/documents", async (req: express.Request, res: express.Res
   if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
   const withUrls = await signDocumentUrls(data || []);
   return res.status(200).json({ success: true, data: withUrls });
+});
+
+// ---- Communiqués (admin) + discussion commune (tout le monde) ----
+
+app.get("/api/community/posts", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const author = await identifyAnyAuthor(req);
+  if (!author) return res.status(401).json({ success: false, error: "Connecte-toi pour voir les communiqués." });
+  const { data, error } = await supabase!
+    .from("community_posts")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
+app.post("/api/community/posts", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!requireDb(res)) return;
+  const author = await identifyAnyAuthor(req);
+  if (!author) return res.status(401).json({ success: false, error: "Connecte-toi pour publier un message." });
+  const { content } = req.body || {};
+  if (!content || !content.trim()) return res.status(400).json({ success: false, error: "Message vide." });
+  const postType = author.role === "admin" ? "announcement" : "discussion";
+  const { data, error } = await supabase!
+    .from("community_posts")
+    .insert({
+      author_id: author.id,
+      author_name: author.name,
+      author_role: author.role,
+      post_type: postType,
+      content: content.trim(),
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit(author.id, author.name, "create", `community_posts/${data.id}`);
+  return res.status(200).json({ success: true, data });
+});
+
+// Modération : seul l'admin peut supprimer un message (spam, contenu inapproprié).
+app.delete("/api/admin/community/posts/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!(await requireAdmin(req, res))) return;
+  if (!requireDb(res)) return;
+  const { error } = await supabase!.from("community_posts").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ success: false, error: error.message });
+  await logAudit((req as any).adminUserId || null, "Admin", "delete", `community_posts/${req.params.id}`);
+  return res.status(200).json({ success: true });
 });
 
 // Global safety net: never let an unexpected crash return an opaque 500 with no info
