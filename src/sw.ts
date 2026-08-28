@@ -3,8 +3,15 @@ import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from
 import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { StaleWhileRevalidate, CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
+import { clientsClaim } from 'workbox-core';
 
 declare let self: ServiceWorkerGlobalScope;
+
+// Active immédiatement chaque nouvelle version du site dès qu'elle est installée,
+// au lieu d'attendre que TOUS les onglets soient fermés (comportement par défaut
+// des Service Workers). C'est ce qui causait "il faut actualiser plusieurs fois".
+self.skipWaiting();
+clientsClaim();
 
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
