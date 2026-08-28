@@ -911,7 +911,7 @@ app.post("/api/operations", async (req: express.Request, res: express.Response) 
   res.setHeader("Content-Type", "application/json");
   if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
-  const { title, description, targetAmountFcfa, startDate, endDate } = req.body || {};
+  const { title, description, targetAmountFcfa, startDate, endDate, productCategory, estimatedQuantity, resaleChannel, riskNotes, estimatedDurationDays } = req.body || {};
   if (!title || !targetAmountFcfa) {
     return res.status(400).json({ success: false, error: "Titre et montant cible requis." });
   }
@@ -925,6 +925,11 @@ app.post("/api/operations", async (req: express.Request, res: express.Response) 
       target_amount_fcfa: targetAmountFcfa,
       start_date: startDate || new Date().toISOString().slice(0, 10),
       end_date: endDate || null,
+      product_category: productCategory || null,
+      estimated_quantity: estimatedQuantity || null,
+      resale_channel: resaleChannel || null,
+      risk_notes: riskNotes || null,
+      estimated_duration_days: estimatedDurationDays || null,
     })
     .select()
     .single();
@@ -937,10 +942,18 @@ app.patch("/api/operations/:id", async (req: express.Request, res: express.Respo
   res.setHeader("Content-Type", "application/json");
   if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
-  const { status } = req.body || {};
-  const { error } = await supabase!.from("operations").update({ status, updated_at: new Date().toISOString() }).eq("id", req.params.id);
+  const { status, description, productCategory, estimatedQuantity, resaleChannel, riskNotes, estimatedDurationDays } = req.body || {};
+  const patch: any = { updated_at: new Date().toISOString() };
+  if (status !== undefined) patch.status = status;
+  if (description !== undefined) patch.description = description;
+  if (productCategory !== undefined) patch.product_category = productCategory;
+  if (estimatedQuantity !== undefined) patch.estimated_quantity = estimatedQuantity;
+  if (resaleChannel !== undefined) patch.resale_channel = resaleChannel;
+  if (riskNotes !== undefined) patch.risk_notes = riskNotes;
+  if (estimatedDurationDays !== undefined) patch.estimated_duration_days = estimatedDurationDays;
+  const { error } = await supabase!.from("operations").update(patch).eq("id", req.params.id);
   if (error) return res.status(500).json({ success: false, error: error.message });
-  await logAudit(null, "Admin", "update", `operations/${req.params.id}`, undefined, status);
+  await logAudit(null, "Admin", "update", `operations/${req.params.id}`, undefined, status || "détails modifiés");
   return res.status(200).json({ success: true });
 });
 
@@ -1037,9 +1050,12 @@ app.post("/api/investor/participate", async (req: express.Request, res: express.
   res.setHeader("Content-Type", "application/json");
   const userId = await requireParticipant(req, res);
   if (!userId) return;
-  const { operationId, amountFcfa, paymentMethod, paymentReference } = req.body || {};
+  const { operationId, amountFcfa, paymentMethod, paymentReference, riskAccepted } = req.body || {};
   if (!operationId || !amountFcfa || amountFcfa <= 0 || !paymentMethod) {
     return res.status(400).json({ success: false, error: "Opération, montant et moyen de paiement requis." });
+  }
+  if (!riskAccepted) {
+    return res.status(400).json({ success: false, error: "Tu dois confirmer avoir compris le risque de perte avant de participer." });
   }
   // Vérifie que l'opération existe et est bien ouverte au financement.
   const { data: op, error: opError } = await supabase!.from("operations").select("id, status").eq("id", operationId).single();
@@ -1056,6 +1072,7 @@ app.post("/api/investor/participate", async (req: express.Request, res: express.
       status: "pending", // reste hors des stats collectées tant que l'admin n'a pas confirmé le paiement réel
       payment_method: paymentMethod,
       payment_reference: paymentReference || null,
+      risk_acknowledged_at: new Date().toISOString(),
     })
     .select()
     .single();

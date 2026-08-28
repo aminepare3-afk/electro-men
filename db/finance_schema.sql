@@ -268,6 +268,19 @@ create policy "participant creates own pending participation" on public.particip
   for insert with check (auth.uid() = participant_id);
 
 -- =====================================================================
+-- MIGRATION 4 — détails précis d'une opération (pour une décision informée)
+-- =====================================================================
+alter table public.operations add column if not exists product_category text;
+alter table public.operations add column if not exists estimated_quantity integer;
+alter table public.operations add column if not exists resale_channel text; -- ex: "boutique en ligne + WhatsApp"
+alter table public.operations add column if not exists risk_notes text; -- risques spécifiques identifiés par l'admin
+alter table public.operations add column if not exists estimated_duration_days integer;
+
+-- Trace explicitement que le participant a bien vu et accepté l'avertissement de
+-- risque au moment de sa demande — utile en cas de litige.
+alter table public.participations add column if not exists risk_acknowledged_at timestamptz;
+
+-- =====================================================================
 -- MIGRATION 3 — documents (factures fournisseurs, justificatifs)
 -- =====================================================================
 -- Stockage privé (bucket Supabase Storage "documents", non public) : les fichiers

@@ -46,6 +46,11 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
   const [formTarget, setFormTarget] = useState('');
   const [formStartDate, setFormStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [formEndDate, setFormEndDate] = useState('');
+  const [formCategory, setFormCategory] = useState('');
+  const [formQuantity, setFormQuantity] = useState('');
+  const [formResaleChannel, setFormResaleChannel] = useState('');
+  const [formRiskNotes, setFormRiskNotes] = useState('');
+  const [formDuration, setFormDuration] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -75,6 +80,11 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
     setFormTarget('');
     setFormStartDate(new Date().toISOString().slice(0, 10));
     setFormEndDate('');
+    setFormCategory('');
+    setFormQuantity('');
+    setFormResaleChannel('');
+    setFormRiskNotes('');
+    setFormDuration('');
     setFormError(null);
   };
 
@@ -89,14 +99,23 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
       setFormError('Le montant cible doit être un nombre positif.');
       return;
     }
+    if (!formDescription.trim()) {
+      setFormError('Merci de décrire précisément cette opération — les participants doivent comprendre ce qu\'ils financent.');
+      return;
+    }
     setSaving(true);
     try {
       await createOperation(adminPassword, {
         title: formTitle.trim(),
-        description: formDescription.trim() || undefined,
+        description: formDescription.trim(),
         targetAmountFcfa: targetNum,
         startDate: formStartDate,
         endDate: formEndDate || undefined,
+        productCategory: formCategory.trim() || undefined,
+        estimatedQuantity: formQuantity ? Number(formQuantity) : undefined,
+        resaleChannel: formResaleChannel.trim() || undefined,
+        riskNotes: formRiskNotes.trim() || undefined,
+        estimatedDurationDays: formDuration ? Number(formDuration) : undefined,
       });
       resetForm();
       setShowCreateModal(false);
@@ -194,6 +213,13 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
                 </div>
 
                 {op.description && <p className="text-xs text-slate-500 line-clamp-2">{op.description}</p>}
+                {(op.productCategory || op.estimatedDurationDays) && (
+                  <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+                    {op.productCategory && <span className="bg-slate-50 px-2 py-1 rounded-lg">{op.productCategory}</span>}
+                    {op.estimatedDurationDays && <span className="bg-slate-50 px-2 py-1 rounded-lg">~{op.estimatedDurationDays}j</span>}
+                    {op.riskNotes && <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-lg">⚠ Risques notés</span>}
+                  </div>
+                )}
 
                 <div>
                   <div className="flex justify-between text-[11px] font-mono uppercase text-slate-400 mb-1">
@@ -296,6 +322,67 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
                   />
                 </div>
               </div>
+
+              <div className="border-t border-slate-100 pt-3 mt-1">
+                <p className="text-[11px] font-mono uppercase text-slate-400 font-bold mb-2">
+                  Détails pour une décision informée des participants
+                </p>
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase text-slate-500 font-bold">Catégorie de produits</label>
+                <input
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                  placeholder="Ex : Microcontrôleurs ARM, capteurs..."
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-mono uppercase text-slate-500 font-bold">Quantité estimée</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={formQuantity}
+                    onChange={(e) => setFormQuantity(e.target.value)}
+                    placeholder="Ex : 500 unités"
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-mono uppercase text-slate-500 font-bold">Durée estimée (jours)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={formDuration}
+                    onChange={(e) => setFormDuration(e.target.value)}
+                    placeholder="Ex : 60"
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase text-slate-500 font-bold">Canal de revente prévu</label>
+                <input
+                  value={formResaleChannel}
+                  onChange={(e) => setFormResaleChannel(e.target.value)}
+                  placeholder="Ex : Boutique en ligne + WhatsApp"
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase text-slate-500 font-bold">
+                  Risques spécifiques identifiés (affiché aux participants)
+                </label>
+                <textarea
+                  value={formRiskNotes}
+                  onChange={(e) => setFormRiskNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Ex : délai douanier variable, risque de mévente si le prix du marché baisse, fluctuation du taux de change..."
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500 resize-none"
+                />
+              </div>
+
               {formError && <p className="text-xs text-red-600">{formError}</p>}
               <button
                 type="submit"

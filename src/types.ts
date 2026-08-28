@@ -90,6 +90,12 @@ export interface Operation {
   endDate?: string;
   participantsCount: number; // TODO(backend): doit provenir du compte réel des participations
   createdAt: string;
+  // Détails précis pour une décision informée du participant :
+  productCategory?: string; // ex: "Microcontrôleurs ARM"
+  estimatedQuantity?: number;
+  resaleChannel?: string; // ex: "Boutique en ligne + WhatsApp"
+  riskNotes?: string; // risques spécifiques identifiés par l'admin (délai douane, fluctuation devise, etc.)
+  estimatedDurationDays?: number;
 }
 
 export type ImportOrderStatus = 'draft' | 'ordered' | 'in_transit' | 'customs' | 'received' | 'cancelled';

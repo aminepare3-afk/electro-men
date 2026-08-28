@@ -19,6 +19,11 @@ function mapOperation(row: any): Operation {
     endDate: row.end_date || undefined,
     participantsCount: Number(row.participants_count) || 0,
     createdAt: row.created_at,
+    productCategory: row.product_category || undefined,
+    estimatedQuantity: row.estimated_quantity ?? undefined,
+    resaleChannel: row.resale_channel || undefined,
+    riskNotes: row.risk_notes || undefined,
+    estimatedDurationDays: row.estimated_duration_days ?? undefined,
   };
 }
 
@@ -50,7 +55,7 @@ export async function participateInOperation(
   const res = await fetch('/api/investor/participate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, riskAccepted: true }),
   });
   const json = await res.json();
   if (!json.success) throw new Error(json.error || 'Erreur lors de la demande de participation.');

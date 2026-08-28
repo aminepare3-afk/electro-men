@@ -19,6 +19,11 @@ function mapFromApi(row: any): Operation {
     endDate: row.end_date || undefined,
     participantsCount: Number(row.participants_count) || 0,
     createdAt: row.created_at,
+    productCategory: row.product_category || undefined,
+    estimatedQuantity: row.estimated_quantity ?? undefined,
+    resaleChannel: row.resale_channel || undefined,
+    riskNotes: row.risk_notes || undefined,
+    estimatedDurationDays: row.estimated_duration_days ?? undefined,
   };
 }
 
@@ -37,6 +42,11 @@ export async function createOperation(
     targetAmountFcfa: number;
     startDate: string;
     endDate?: string;
+    productCategory?: string;
+    estimatedQuantity?: number;
+    resaleChannel?: string;
+    riskNotes?: string;
+    estimatedDurationDays?: number;
   }
 ): Promise<Operation> {
   const res = await fetch('/api/operations', {
