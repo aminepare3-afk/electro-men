@@ -726,228 +726,247 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-3">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold transition-all ${
-            activeTab === 'dashboard'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          Dashboard
-        </button>
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-4">
+        {/* Dashboard — toujours à part, point d'entrée */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold transition-all ${
+              activeTab === 'dashboard'
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            Dashboard
+          </button>
+        </div>
 
-        <button
-          onClick={() => {
-            resetForm();
-            setActiveTab('products');
-          }}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold transition-all ${
-            activeTab === 'products'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          Catalogue Produits ({products.length})
-        </button>
+        {/* Groupe BOUTIQUE — gestion du site e-commerce */}
+        <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-3">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-amber-700 font-bold mb-2 px-1">
+            Boutique en ligne
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                resetForm();
+                setActiveTab('products');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold transition-all ${
+                activeTab === 'products'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-amber-100 border border-amber-100'
+              }`}
+            >
+              Catalogue Produits ({products.length})
+            </button>
 
-        <button
-          onClick={() => setActiveTab('add')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'add'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          <span>{editingProductId ? 'Modifier Composant' : 'Ajouter Nouveau Composant'}</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('add')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'add'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-amber-100 border border-amber-100'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>{editingProductId ? 'Modifier Composant' : 'Ajouter Nouveau Composant'}</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('orders')}
-          className={`relative px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'orders'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <ClipboardList className="w-4 h-4" />
-          <span>Commandes {orders.length > 0 ? `(${orders.length})` : ''}</span>
-          {newOrdersCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-bold animate-pulse">
-              {newOrdersCount > 9 ? '9+' : newOrdersCount}
-            </span>
-          )}
-        </button>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`relative px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'orders'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-amber-100 border border-amber-100'
+              }`}
+            >
+              <ClipboardList className="w-4 h-4" />
+              <span>Commandes {orders.length > 0 ? `(${orders.length})` : ''}</span>
+              {newOrdersCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-bold animate-pulse">
+                  {newOrdersCount > 9 ? '9+' : newOrdersCount}
+                </span>
+              )}
+            </button>
 
-        <button
-          onClick={() => setActiveTab('operations')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'operations'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Briefcase className="w-4 h-4" />
-          <span>Opérations</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'notifications'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-amber-100 border border-amber-100'
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              <span>Notifications</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('imports')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'imports'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Truck className="w-4 h-4" />
-          <span>Importations</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('content')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'content'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-amber-100 border border-amber-100'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Contenu</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('withdrawals')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'withdrawals'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Landmark className="w-4 h-4" />
-          <span>Retraits</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'settings'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-amber-100 border border-amber-100'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Paramètres</span>
+            </button>
+          </div>
+        </div>
 
-        <button
-          onClick={() => setActiveTab('distributions')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'distributions'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Distributions</span>
-        </button>
+        {/* Groupe ESPACE INVESTISSEUR — financement participatif */}
+        <div className="bg-cyan-50/50 border border-cyan-100 rounded-2xl p-3">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-700 font-bold mb-2 px-1">
+            Espace Investisseur
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setActiveTab('operations')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'operations'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Opérations</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'ledger'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>Grand livre</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('imports')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'imports'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <Truck className="w-4 h-4" />
+              <span>Importations</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('participants')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'participants'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Participants</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('withdrawals')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'withdrawals'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <Landmark className="w-4 h-4" />
+              <span>Retraits</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'audit'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>Audit</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('distributions')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'distributions'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>Distributions</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'reports'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <FileBarChart className="w-4 h-4" />
-          <span>Rapports</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('ledger')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'ledger'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Grand livre</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('notifications')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'notifications'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Bell className="w-4 h-4" />
-          <span>Notifications</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('participants')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'participants'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Participants</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('community')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'community'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Megaphone className="w-4 h-4" />
-          <span>Communauté</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'users'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Utilisateurs</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('content')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'content'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Contenu</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('community')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'community'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              <span>Communauté</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'users'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Utilisateurs</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'documents'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <FileUp className="w-4 h-4" />
+              <span>Documents</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('documents')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'documents'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <FileUp className="w-4 h-4" />
-          <span>Documents</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'reports'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <FileBarChart className="w-4 h-4" />
+              <span>Rapports</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
-            activeTab === 'settings'
-              ? 'bg-amber-500 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-          }`}
-        >
-          <Settings className="w-4 h-4" />
-          <span>Paramètres</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('audit')}
+              className={`px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold flex items-center gap-1.5 transition-all ${
+                activeTab === 'audit'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'bg-white text-slate-700 hover:bg-cyan-100 border border-cyan-100'
+              }`}
+            >
+              <History className="w-4 h-4" />
+              <span>Audit</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Tab Content 0: Dashboard */}
