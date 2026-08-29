@@ -126,7 +126,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <img
                     src={images[activeMedia.index] || images[0]}
                     alt={product.name}
-                    className="w-full h-full object-contain p-3"
+                    className="w-full h-full object-contain p-6"
                     onError={(e) => {
                       (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
                     }}

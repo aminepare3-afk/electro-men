@@ -80,7 +80,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           alt={product.name}
           loading="lazy"
           decoding="async"
-          className="w-full h-full object-contain object-center p-2 group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-contain object-center p-4 group-hover:scale-105 transition-transform duration-300"
           onError={(e) => {
             (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1608564697071-ddf911d81370?auto=format&fit=crop&w=600&q=80');
           }}
