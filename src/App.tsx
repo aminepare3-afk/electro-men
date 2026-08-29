@@ -18,6 +18,13 @@ import { INITIAL_PRODUCTS, CATEGORIES, DEMO_SAMPLE_PRODUCTS } from './data/initi
 import { Logo } from './components/Logo';
 import { Send, Phone, MapPin, Globe, ShieldCheck, Zap, Cpu, Sparkles, Plus, ArrowLeft } from 'lucide-react';
 
+// Mot-clé secret d'accès à l'administration — remplace /admin, qui n'existe plus
+// du tout (aucune trace, aucun écran, rien). Connu uniquement du propriétaire.
+// Sécurité complémentaire au mot de passe + à la limite de tentatives (pas une
+// protection à elle seule).
+const ADMIN_SECRET_PATH = '/p=m*g';
+const ADMIN_SECRET_KEYWORD = 'p=m*g';
+
 export default function App() {
   // LocalStorage Persistence for Products
   const [products, setProducts] = useState<Product[]>(() => {
@@ -125,7 +132,7 @@ export default function App() {
     const checkAdminRoute = () => {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const hash = window.location.hash.toLowerCase();
-      if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
+      if (path === ADMIN_SECRET_PATH || hash === `#${ADMIN_SECRET_KEYWORD}`) {
         setIsAdminOpen(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -393,17 +400,10 @@ export default function App() {
       .slice(0, 6);
   }, [products]);
 
-  // Handle Search Input (triggers admin mode if 'admin' or '/admin' is typed)
+  // Handle Search Input (déclenche l'admin uniquement si le mot-clé secret est tapé)
   const handleSearchChange = (query: string) => {
     const clean = query.trim().toLowerCase();
-    if (
-      clean === 'admin' ||
-      clean === '/admin' ||
-      clean === 'admin/' ||
-      clean === '/admin/' ||
-      clean === '#admin' ||
-      clean === '?admin'
-    ) {
+    if (clean === ADMIN_SECRET_KEYWORD || clean === ADMIN_SECRET_PATH) {
       setIsAdminOpen(true);
       setSearchQuery('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -425,7 +425,7 @@ export default function App() {
 
   const handleCloseAdmin = () => {
     setIsAdminOpen(false);
-    if (window.location.pathname.toLowerCase().includes('admin')) {
+    if (window.location.pathname.toLowerCase() === ADMIN_SECRET_PATH) {
       window.history.replaceState({}, '', '/');
     }
   };
