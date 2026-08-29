@@ -159,12 +159,70 @@ function requireDb(res: express.Response): boolean {
   return true;
 }
 
+// =====================================================================
+// PROTECTION CONTRE LA FORCE BRUTE — limite les tentatives de connexion par IP.
+// En mémoire (best-effort) : réinitialisé si le serveur redémarre, mais ralentit
+// significativement un attaquant qui teste des mots de passe en boucle.
+// =====================================================================
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const loginAttempts = new Map<string, { count: number; firstAttemptAt: number }>();
+
+function getClientIp(req: express.Request): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  return req.socket?.remoteAddress || "unknown";
+}
+
+/** Retourne true si la requête est autorisée, false (+ réponse 429 déjà envoyée) sinon. */
+function checkLoginRateLimit(req: express.Request, res: express.Response, routeKey: string): boolean {
+  const ip = getClientIp(req);
+  const key = `${routeKey}:${ip}`;
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+
+  if (entry && now - entry.firstAttemptAt > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(key); // fenêtre expirée, on repart à zéro
+  }
+
+  const current = loginAttempts.get(key);
+  if (current && current.count >= LOGIN_MAX_ATTEMPTS) {
+    const remainingMs = LOGIN_WINDOW_MS - (now - current.firstAttemptAt);
+    const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
+    res.status(429).json({
+      success: false,
+      error: `Trop de tentatives. Réessaie dans ${remainingMin} minute(s).`,
+    });
+    return false;
+  }
+  return true;
+}
+
+function recordFailedLogin(req: express.Request, routeKey: string): void {
+  const ip = getClientIp(req);
+  const key = `${routeKey}:${ip}`;
+  const now = Date.now();
+  const existing = loginAttempts.get(key);
+  if (existing && now - existing.firstAttemptAt <= LOGIN_WINDOW_MS) {
+    existing.count += 1;
+  } else {
+    loginAttempts.set(key, { count: 1, firstAttemptAt: now });
+  }
+}
+
+function clearLoginAttempts(req: express.Request, routeKey: string): void {
+  loginAttempts.delete(`${routeKey}:${getClientIp(req)}`);
+}
+
 // Admin login — verifies the password server-side only (never shipped to the client bundle)
 app.post("/api/admin-login", (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
+  if (!checkLoginRateLimit(req, res, "admin-login")) return;
   if (req.body?.password === ADMIN_PASSWORD) {
+    clearLoginAttempts(req, "admin-login");
     return res.status(200).json({ success: true });
   }
+  recordFailedLogin(req, "admin-login");
   return res.status(401).json({ success: false });
 });
 
@@ -172,13 +230,18 @@ app.post("/api/admin-login", (req: express.Request, res: express.Response) => {
 
 app.post("/api/admin/accounts/login", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
+  if (!checkLoginRateLimit(req, res, "admin-account-login")) return;
   if (!requireDb(res)) return;
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ success: false, error: "Email et mot de passe requis." });
   const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
-  if (error || !data.session) return res.status(401).json({ success: false, error: "Email ou mot de passe incorrect." });
+  if (error || !data.session) {
+    recordFailedLogin(req, "admin-account-login");
+    return res.status(401).json({ success: false, error: "Email ou mot de passe incorrect." });
+  }
   const { data: roleRow } = await supabase!.from("admin_roles").select("role").eq("id", data.user!.id).single();
   if (!roleRow) return res.status(403).json({ success: false, error: "Ce compte n'a pas d'accès administrateur." });
+  clearLoginAttempts(req, "admin-account-login");
   await logAudit(data.user!.id, email, "login", "admin_roles");
   return res.status(200).json({ success: true, accessToken: data.session.access_token, role: roleRow.role });
 });
@@ -858,7 +921,11 @@ async function logAudit(
 
 app.post("/api/investor/signup", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
+  if (!checkLoginRateLimit(req, res, "investor-signup")) return;
   if (!requireDb(res)) return;
+  // Compte chaque tentative (succès ou échec) contre la limite, pour éviter la
+  // création massive de faux comptes — différent de la logique de connexion.
+  recordFailedLogin(req, "investor-signup");
   const { email, password, fullName, phone } = req.body || {};
   if (!email || !password || !fullName) {
     return res.status(400).json({ success: false, error: "Email, mot de passe et nom complet sont requis." });
@@ -889,6 +956,7 @@ app.post("/api/investor/signup", async (req: express.Request, res: express.Respo
 
 app.post("/api/investor/login", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
+  if (!checkLoginRateLimit(req, res, "investor-login")) return;
   if (!requireDb(res)) return;
   const { email, password } = req.body || {};
   if (!email || !password) {
@@ -897,8 +965,10 @@ app.post("/api/investor/login", async (req: express.Request, res: express.Respon
   try {
     const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
     if (error || !data.session) {
+      recordFailedLogin(req, "investor-login");
       return res.status(401).json({ success: false, error: "Email ou mot de passe incorrect." });
     }
+    clearLoginAttempts(req, "investor-login");
     return res.status(200).json({
       success: true,
       accessToken: data.session.access_token,
