@@ -46,11 +46,11 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({ orders }) 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
-        <p className="text-xs text-cyan-900">
-          Vue basée sur les clients réels de la boutique (issus des commandes). Les comptes participants
-          d'investissement (montant engagé, résultats, statut) s'ajouteront une fois le backend financement créé.
+      <div>
+        <h2 className="text-lg font-bold text-slate-950">Clients Boutique</h2>
+        <p className="text-sm text-slate-500">
+          Les clients qui ont acheté des produits électroniques sur ta boutique — pas les investisseurs (ceux-là
+          sont dans l'onglet "Comptes Investisseurs"). Utile pour voir qui commande le plus.
         </p>
       </div>
 

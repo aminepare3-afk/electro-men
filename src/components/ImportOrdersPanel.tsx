@@ -138,11 +138,18 @@ export const ImportOrdersPanel: React.FC<ImportOrdersPanelProps> = ({ adminPassw
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
-        <p className="text-xs text-cyan-900">
-          Module en préparation : ces commandes d'importation sont un brouillon local. La réception ne met pas
-          encore à jour automatiquement le stock du catalogue — ce lien sera fait une fois le backend branché.
+      <div>
+        <h2 className="text-lg font-bold text-slate-950">Commandes fournisseurs</h2>
+        <p className="text-sm text-slate-500">
+          Enregistre ici chaque commande passée à un fournisseur pour importer des produits : quantité, prix
+          d'achat, frais de transport et de douane. Marque "Réceptionné" une fois les produits arrivés.
+        </p>
+      </div>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+        <Info className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+        <p className="text-xs text-amber-900">
+          À faire toi-même : marquer "Réceptionné" ici ne met pas encore à jour automatiquement le stock du
+          catalogue produit — pense à l'ajuster manuellement dans l'onglet Catalogue Produits.
         </p>
       </div>
 

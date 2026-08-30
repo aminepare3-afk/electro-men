@@ -150,13 +150,11 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Bandeau d'avertissement : module en préparation, pas de backend financier dédié */}
-      <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
-        <p className="text-xs text-cyan-900">
-          Module en préparation : les opérations créées ici sont un brouillon de travail stocké dans ce navigateur.
-          Les montants collectés et le nombre de participants ne sont pas encore réels — ils seront calculés
-          automatiquement une fois le backend financement (comptes participants, ledger) branché.
+      <div>
+        <h2 className="text-lg font-bold text-slate-950">Opérations d'importation</h2>
+        <p className="text-sm text-slate-500">
+          Crée ici une opération à financer (ex : "Importation composants Q1"). Une fois créée, elle apparaît
+          automatiquement dans l'espace investisseur pour que les gens puissent y participer.
         </p>
       </div>
 

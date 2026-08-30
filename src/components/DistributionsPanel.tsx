@@ -122,11 +122,18 @@ export const DistributionsPanel: React.FC<DistributionsPanelProps> = ({ adminPas
 
   return (
     <div className="flex flex-col gap-4">
+      <div>
+        <h2 className="text-lg font-bold text-slate-950">Distributions de bénéfices/pertes</h2>
+        <p className="text-sm text-slate-500">
+          Une fois une opération <strong>clôturée</strong>, calcule ici le résultat final (bénéfice ou perte) et
+          répartis-le entre les investisseurs, selon le montant que chacun a réellement engagé.
+        </p>
+      </div>
       <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
         <ShieldAlert className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
         <p className="text-xs text-cyan-900">
-          La part de chaque participant est calculée au prorata de sa participation active réelle. Le résultat
-          n'est écrit dans le grand livre qu'après validation puis confirmation explicite (irréversible).
+          3 étapes : Préparer (calcul automatique de la part de chacun) → Valider (relis avant confirmation) →
+          Confirmer (irréversible, écrit dans le grand livre de chaque investisseur).
         </p>
       </div>
 

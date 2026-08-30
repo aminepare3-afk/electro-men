@@ -12,28 +12,29 @@ const ACTION_LABELS: Record<AuditActionType, string> = {
   login: 'Connexion',
 };
 
-export const AuditPanel: React.FC = () => {
+export const AuditPanel: React.FC<{ adminPassword: string }> = ({ adminPassword }) => {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getAuditLog()
+    getAuditLog(adminPassword)
       .then(setEntries)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-        <ShieldAlert className="w-5 h-5 text-amber-700 mt-0.5 shrink-0" />
-        <div>
-          <h3 className="text-sm font-bold text-amber-900 mb-1">Journal d'audit — lecture seule</h3>
-          <p className="text-xs text-amber-800/90">
-            Chaque action sensible (créer, modifier, approuver un retrait, etc.) sera enregistrée automatiquement
-            côté serveur ici, une fois le backend branché. Vide pour l'instant car aucune écriture serveur n'existe encore.
-          </p>
-        </div>
+      <div>
+        <h2 className="text-lg font-bold text-slate-950">Journal d'audit</h2>
+        <p className="text-sm text-slate-500">
+          L'historique de toutes les actions importantes (créer, modifier, confirmer un retrait...) faites sur le
+          site — utile pour retrouver qui a fait quoi en cas de doute. Lecture seule, rien n'est modifiable ici.
+        </p>
       </div>
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3">{error}</div>}
 
       {loading ? (
         <div className="text-sm text-slate-400 py-8 text-center">Chargement…</div>

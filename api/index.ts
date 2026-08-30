@@ -1725,6 +1725,20 @@ app.delete("/api/admin/community/posts/:id", async (req: express.Request, res: e
   return res.status(200).json({ success: true });
 });
 
+// ---- Journal d'audit (lecture) ----
+app.get("/api/admin/audit-log", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!(await requireAdmin(req, res))) return;
+  if (!requireDb(res)) return;
+  const { data, error } = await supabase!
+    .from("audit_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
+  return res.status(200).json({ success: true, data });
+});
+
 // Global safety net: never let an unexpected crash return an opaque 500 with no info
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("[Unhandled API Error]", err);

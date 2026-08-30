@@ -59,11 +59,19 @@ export const WithdrawalsPanel: React.FC<WithdrawalsPanelProps> = ({ adminPasswor
 
   return (
     <div className="flex flex-col gap-6">
+      <div>
+        <h2 className="text-lg font-bold text-slate-950">Retraits investisseurs</h2>
+        <p className="text-sm text-slate-500">
+          Un investisseur a demandé à retirer de l'argent de son solde disponible. Confirme uniquement <strong>après</strong> avoir
+          réellement envoyé l'argent (mobile money, espèces...) — sinon refuse.
+        </p>
+      </div>
+
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3">{error}</div>}
 
       <div>
         <h3 className="text-sm font-bold text-slate-900 mb-3">
-          Retraits en attente {pending.length > 0 && `(${pending.length})`}
+          En attente de traitement {pending.length > 0 && `(${pending.length})`}
         </h3>
         {loading ? (
           <div className="text-sm text-slate-400 py-8 text-center">Chargement…</div>

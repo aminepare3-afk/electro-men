@@ -37,11 +37,11 @@ export const LedgerPanel: React.FC<{ adminPassword: string }> = ({ adminPassword
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
-        <ShieldAlert className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
-        <p className="text-xs text-cyan-900">
-          Écritures réelles, en lecture seule — aucune suppression possible. Toute correction passe par une nouvelle
-          écriture d'ajustement.
+      <div>
+        <h2 className="text-lg font-bold text-slate-950">Grand livre</h2>
+        <p className="text-sm text-slate-500">
+          L'historique complet de tous les mouvements d'argent des investisseurs (participations, bénéfices,
+          pertes, retraits). Uniquement pour consulter — rien ne peut être modifié ou supprimé ici.
         </p>
       </div>
       {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3">{error}</div>}

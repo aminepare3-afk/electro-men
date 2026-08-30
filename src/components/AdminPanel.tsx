@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Lock, Unlock, Plus, Trash2, Edit3, Save, X, Upload, AlertCircle, CheckCircle2, ShieldAlert, Cpu, Download, FileSpreadsheet, FileUp, ClipboardList, MapPin, Phone, Send, RefreshCw, Settings, Truck, Mail, Bell, Briefcase, Landmark, TrendingUp, BookOpen, Users, History, FileBarChart, Megaphone } from 'lucide-react';
 import { CommunityFeed } from './CommunityFeed';
+import { AdminAccountsPanel } from './AdminAccountsPanel';
 import { Product, StockStatus, CustomSourcingRequest, Order, OrderStatus } from '../types';
 import { CATEGORIES } from '../data/initialData';
 import { getMainImage } from '../utils/product';
@@ -903,7 +904,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Participants</span>
+              <span>Clients Boutique</span>
             </button>
 
             <button
@@ -915,7 +916,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Utilisateurs</span>
+              <span>Comptes Investisseurs</span>
             </button>
 
             <button
@@ -1009,7 +1010,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'participants' && <ParticipantsPanel orders={orders} />}
 
       {/* Tab Content: Audit */}
-      {activeTab === 'audit' && <AuditPanel />}
+      {activeTab === 'audit' && <AuditPanel adminPassword={passwordInput} />}
 
       {/* Tab Content: Ledger */}
       {activeTab === 'ledger' && <LedgerPanel adminPassword={passwordInput} />}
@@ -1556,6 +1557,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </span>
             )}
           </div>
+
+          <AdminAccountsPanel adminPassword={passwordInput} />
         </div>
       )}
 
