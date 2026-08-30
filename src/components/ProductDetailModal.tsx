@@ -110,7 +110,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
             {/* Gallery */}
             <div className="md:col-span-5 space-y-2">
-              <div className="relative rounded-xl overflow-hidden bg-slate-100 border border-slate-200 h-64">
+              <div className="relative rounded-xl overflow-hidden bg-white border border-slate-200 h-64">
                 {activeMedia.type === 'video' && videoInfo ? (
                   videoInfo.type === 'direct' ? (
                     <video src={videoInfo.embedUrl} controls className="w-full h-full object-contain bg-black" />

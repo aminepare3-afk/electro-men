@@ -72,7 +72,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <div className="group relative rounded-xl sm:rounded-2xl bg-white border border-slate-200 hover:border-amber-400 shadow-sm hover:shadow-lg flex flex-col justify-between overflow-hidden transition-shadow duration-200">
       {/* Top Image Container */}
       <div
-        className="relative h-28 sm:h-40 lg:h-48 w-full bg-slate-100 overflow-hidden cursor-pointer"
+        className="relative h-28 sm:h-40 lg:h-48 w-full bg-white overflow-hidden cursor-pointer"
         onClick={() => onSelectProduct(product)}
       >
         <img
