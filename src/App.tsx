@@ -483,10 +483,11 @@ export default function App() {
 
           <button
             onClick={handleCloseInvestor}
-            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono text-xs uppercase font-bold flex items-center gap-2 border border-slate-300 transition-all shadow-sm"
+            className="px-3 sm:px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono text-xs uppercase font-bold flex items-center gap-2 border border-slate-300 transition-all shadow-sm"
           >
             <ArrowLeft className="w-4 h-4 text-amber-600" />
-            <span>Retourner à la Boutique</span>
+            <span className="hidden sm:inline">Retourner à la Boutique</span>
+            <span className="sm:hidden">Boutique</span>
           </button>
         </header>
 

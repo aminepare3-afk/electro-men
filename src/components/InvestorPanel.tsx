@@ -10,6 +10,8 @@ import {
   LogIn,
   ShieldAlert,
   Megaphone,
+  MoreHorizontal,
+  X,
 } from 'lucide-react';
 import { useInvestorAuth } from '../hooks/useInvestorAuth';
 import { InvestorAuthScreen } from './InvestorAuthScreen';
@@ -44,6 +46,12 @@ const NAV_ITEMS: { key: InvestorTab; label: string; icon: React.ReactNode }[] = 
   { key: 'profile', label: 'Profil', icon: <UserCircle className="w-4 h-4" /> },
 ];
 
+// Sur téléphone : seules ces 4 sections restent accessibles directement au pouce
+// dans la barre du bas — le reste passe dans le menu "Plus" pour ne pas surcharger.
+const MOBILE_PRIMARY_KEYS: InvestorTab[] = ['dashboard', 'operations', 'wallet', 'community'];
+const MOBILE_PRIMARY_ITEMS = NAV_ITEMS.filter((i) => MOBILE_PRIMARY_KEYS.includes(i.key));
+const MOBILE_MORE_ITEMS = NAV_ITEMS.filter((i) => !MOBILE_PRIMARY_KEYS.includes(i.key));
+
 const fmt = (n: number) => `${n.toLocaleString('fr-FR')} FCFA`;
 
 /**
@@ -63,6 +71,7 @@ const NoAccountState: React.FC<{ note?: string }> = ({ note }) => (
 export const InvestorPanel: React.FC = () => {
   const auth = useInvestorAuth();
   const [activeTab, setActiveTab] = useState<InvestorTab>('dashboard');
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   if (auth.loading && !auth.profile) {
     return <div className="text-center py-16 text-sm text-slate-400">Chargement…</div>;
@@ -73,9 +82,15 @@ export const InvestorPanel: React.FC = () => {
   }
 
   const wallet = auth.wallet;
+  const isMoreTabActive = MOBILE_MORE_ITEMS.some((i) => i.key === activeTab);
+
+  const goTo = (tab: InvestorTab) => {
+    setActiveTab(tab);
+    setShowMoreMenu(false);
+  };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pb-20 md:pb-0">
       <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 flex items-start gap-2.5">
         <ShieldAlert className="w-4 h-4 text-cyan-700 mt-0.5 shrink-0" />
         <p className="text-xs text-cyan-900">
@@ -84,7 +99,8 @@ export const InvestorPanel: React.FC = () => {
         </p>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      {/* Navigation desktop — rangée complète, cachée sur mobile */}
+      <div className="hidden md:flex gap-2 overflow-x-auto pb-1">
         {NAV_ITEMS.map((item) => (
           <button
             key={item.key}
@@ -100,6 +116,63 @@ export const InvestorPanel: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* Navigation mobile — barre fixe en bas, accessible au pouce */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
+        <div className="grid grid-cols-5">
+          {MOBILE_PRIMARY_ITEMS.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => goTo(item.key)}
+              className={`flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${
+                activeTab === item.key ? 'text-amber-600' : 'text-slate-500'
+              }`}
+            >
+              {item.icon}
+              <span className="text-[10px] font-mono uppercase font-bold leading-none">{item.label.split(' ')[0]}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setShowMoreMenu(true)}
+            className={`flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${
+              isMoreTabActive ? 'text-amber-600' : 'text-slate-500'
+            }`}
+          >
+            <MoreHorizontal className="w-4 h-4" />
+            <span className="text-[10px] font-mono uppercase font-bold leading-none">Plus</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Feuille "Plus" — sections secondaires, mobile uniquement */}
+      {showMoreMenu && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-end" onClick={() => setShowMoreMenu(false)}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative bg-white w-full rounded-t-2xl p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] flex flex-col gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-bold text-slate-900">Plus</h3>
+              <button onClick={() => setShowMoreMenu(false)} className="text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {MOBILE_MORE_ITEMS.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => goTo(item.key)}
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
+                  activeTab === item.key ? 'bg-amber-50 text-amber-800' : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {activeTab === 'dashboard' && (
         <div className="flex flex-col gap-4">
