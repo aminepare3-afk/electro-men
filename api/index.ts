@@ -937,7 +937,14 @@ app.post("/api/investor/signup", async (req: express.Request, res: express.Respo
       email_confirm: true,
     });
     if (error || !data.user) {
-      return res.status(400).json({ success: false, error: error?.message || "Création du compte impossible." });
+      // Message clair si le compte existe déjà, plutôt que l'erreur brute de Supabase.
+      const alreadyExists = error?.message?.toLowerCase().includes("already") || error?.message?.toLowerCase().includes("registered");
+      return res.status(400).json({
+        success: false,
+        error: alreadyExists
+          ? "Un compte existe déjà avec cet email. Essaie de te connecter, ou contacte-nous si tu as oublié ton mot de passe."
+          : error?.message || "Création du compte impossible.",
+      });
     }
     const { error: profileError } = await supabase!.from("participant_profiles").insert({
       id: data.user.id,
@@ -945,6 +952,9 @@ app.post("/api/investor/signup", async (req: express.Request, res: express.Respo
       phone: phone || null,
     });
     if (profileError) {
+      // Le compte Auth a été créé mais le profil a échoué : on annule tout pour éviter
+      // un compte "orphelin" à moitié créé qui bloquerait toute nouvelle tentative.
+      await supabase!.auth.admin.deleteUser(data.user.id);
       return res.status(500).json({ success: false, error: profileError.message });
     }
     await logAudit(data.user.id, fullName, "create", "participant_profiles");

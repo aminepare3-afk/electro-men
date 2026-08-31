@@ -12,7 +12,6 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [signupDone, setSignupDone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,8 +20,9 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
     } else {
       const ok = await auth.signup(email, password, fullName, phone);
       if (ok) {
-        setSignupDone(true);
-        setMode('login');
+        // Connexion automatique juste après l'inscription — pas besoin de retaper
+        // ses identifiants une seconde fois.
+        await auth.login(email, password);
       }
     }
   };
@@ -31,10 +31,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
     <div className="max-w-sm mx-auto py-8">
       <div className="flex gap-2 mb-6">
         <button
-          onClick={() => {
-            setMode('login');
-            setSignupDone(false);
-          }}
+          onClick={() => setMode('login')}
           className={`flex-1 py-2.5 rounded-xl text-xs font-mono uppercase font-bold flex items-center justify-center gap-1.5 transition-colors ${
             mode === 'login' ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-600'
           }`}
@@ -43,10 +40,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
           Connexion
         </button>
         <button
-          onClick={() => {
-            setMode('signup');
-            setSignupDone(false);
-          }}
+          onClick={() => setMode('signup')}
           className={`flex-1 py-2.5 rounded-xl text-xs font-mono uppercase font-bold flex items-center justify-center gap-1.5 transition-colors ${
             mode === 'signup' ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-600'
           }`}
@@ -55,12 +49,6 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
           Créer un compte
         </button>
       </div>
-
-      {signupDone && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl p-3 mb-4">
-          Compte créé ! Connecte-toi maintenant avec ton email et mot de passe.
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {mode === 'signup' && (
