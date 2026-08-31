@@ -32,7 +32,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setMode('login')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-mono uppercase font-bold flex items-center justify-center gap-1.5 transition-colors ${
+          className={`flex-1 py-3.5 rounded-xl text-sm font-mono uppercase font-bold flex items-center justify-center gap-1.5 transition-colors ${
             mode === 'login' ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-600'
           }`}
         >
@@ -41,7 +41,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
         </button>
         <button
           onClick={() => setMode('signup')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-mono uppercase font-bold flex items-center justify-center gap-1.5 transition-colors ${
+          className={`flex-1 py-3.5 rounded-xl text-sm font-mono uppercase font-bold flex items-center justify-center gap-1.5 transition-colors ${
             mode === 'signup' ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 text-slate-600'
           }`}
         >
@@ -61,7 +61,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
               />
             </div>
             <div>
@@ -72,7 +72,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+226 ..."
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
               />
             </div>
           </>
@@ -86,7 +86,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+            className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
           />
         </div>
         <div>
@@ -99,7 +99,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+            className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
           />
         </div>
 
@@ -113,7 +113,7 @@ export const InvestorAuthScreen: React.FC<InvestorAuthScreenProps> = ({ auth }) 
         <button
           type="submit"
           disabled={auth.loading}
-          className="mt-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-mono text-xs uppercase font-bold py-2.5 rounded-xl transition-colors"
+          className="mt-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-slate-950 font-mono text-sm uppercase font-bold py-4 rounded-xl transition-colors"
         >
           {auth.loading ? 'Chargement…' : mode === 'login' ? 'Se connecter' : 'Créer mon compte'}
         </button>

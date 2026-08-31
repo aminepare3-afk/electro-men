@@ -169,13 +169,13 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
                 <div className="flex gap-2">
                   <button
                     onClick={() => setDetailOp(op)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs uppercase font-bold py-2.5 rounded-xl transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-mono text-xs uppercase font-bold py-3.5 rounded-xl transition-colors"
                   >
                     Voir détails <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => openParticipate(op)}
-                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-mono text-xs uppercase font-bold py-2.5 rounded-xl transition-colors"
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 font-mono text-xs uppercase font-bold py-3.5 rounded-xl transition-colors"
                   >
                     Participer
                   </button>
@@ -257,51 +257,55 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-lg text-slate-950">Participer</h3>
-              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
+              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-700 p-2 -m-2">
+                <X className="w-6 h-6" />
               </button>
             </div>
-            <p className="text-xs text-slate-500 mb-4">{selected.title}</p>
+            <p className="text-sm text-slate-500 mb-4">{selected.title}</p>
 
             <RiskWarning />
 
-            <form onSubmit={submit} className="flex flex-col gap-3 mt-4">
+            <form onSubmit={submit} className="flex flex-col gap-4 mt-4">
               {selected.sharePriceFcfa ? (
                 <div>
-                  <label className="text-xs font-mono uppercase text-slate-500 font-bold">
+                  <label className="text-sm font-mono uppercase text-slate-600 font-bold">
                     Nombre de parts * (1 part = {fmt(selected.sharePriceFcfa)})
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min={1}
                     value={shares}
                     onChange={(e) => setShares(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                    className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                   />
                   {Number(shares) > 0 && (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-sm text-slate-500 mt-1.5">
                       Total à payer : <strong>{fmt(effectiveAmount)}</strong>
                     </p>
                   )}
                 </div>
               ) : (
                 <div>
-                  <label className="text-xs font-mono uppercase text-slate-500 font-bold">Montant (FCFA) *</label>
+                  <label className="text-sm font-mono uppercase text-slate-600 font-bold">Montant (FCFA) *</label>
                   <input
                     type="number"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     min={1}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                    className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                   />
                 </div>
               )}
               <div>
-                <label className="text-xs font-mono uppercase text-slate-500 font-bold">Moyen de paiement</label>
+                <label className="text-sm font-mono uppercase text-slate-600 font-bold">Moyen de paiement</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                  className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                 >
                   <option value="orange_money">Orange Money</option>
                   <option value="moov_money">Moov Money</option>
@@ -309,21 +313,21 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
                 </select>
               </div>
               <div>
-                <label className="text-xs font-mono uppercase text-slate-500 font-bold">Référence de transaction</label>
+                <label className="text-sm font-mono uppercase text-slate-600 font-bold">Référence de transaction</label>
                 <input
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
                   placeholder="Ex : code reçu par SMS"
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+                  className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                 />
               </div>
 
-              <label className="flex items-start gap-2 text-xs text-slate-700 bg-slate-50 rounded-xl p-3 cursor-pointer">
+              <label className="flex items-start gap-3 text-sm text-slate-700 bg-slate-50 rounded-xl p-4 cursor-pointer active:bg-slate-100">
                 <input
                   type="checkbox"
                   checked={riskAccepted}
                   onChange={(e) => setRiskAccepted(e.target.checked)}
-                  className="mt-0.5"
+                  className="mt-0.5 w-5 h-5 shrink-0"
                 />
                 <span>
                   Je comprends que le résultat de cette opération n'est pas garanti et qu'une perte partielle ou
@@ -331,11 +335,11 @@ export const InvestorOperationsList: React.FC<{ token: string }> = ({ token }) =
                 </span>
               </label>
 
-              {error && <p className="text-xs text-red-600">{error}</p>}
+              {error && <p className="text-sm text-red-600">{error}</p>}
               <button
                 type="submit"
                 disabled={submitting || !riskAccepted}
-                className="mt-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-mono text-xs uppercase font-bold py-2.5 rounded-xl transition-colors"
+                className="mt-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-mono text-sm uppercase font-bold py-4 rounded-xl transition-colors"
               >
                 {submitting ? 'Envoi…' : 'Envoyer la demande'}
               </button>

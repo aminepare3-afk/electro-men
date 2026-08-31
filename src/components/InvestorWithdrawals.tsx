@@ -70,43 +70,45 @@ export const InvestorWithdrawals: React.FC<{ token: string }> = ({ token }) => {
         </p>
       </div>
 
-      <form onSubmit={submit} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3 max-w-sm">
-        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+      <form onSubmit={submit} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-4 max-w-sm">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
           <Landmark className="w-4 h-4" />
           Demander un retrait
         </h3>
         <div>
-          <label className="text-xs font-mono uppercase text-slate-500 font-bold">Montant (FCFA)</label>
+          <label className="text-sm font-mono uppercase text-slate-600 font-bold">Montant (FCFA)</label>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             min={1}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+            className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
           />
         </div>
         <div>
-          <label className="text-xs font-mono uppercase text-slate-500 font-bold">Moyen de retrait</label>
+          <label className="text-sm font-mono uppercase text-slate-600 font-bold">Moyen de retrait</label>
           <select
             value={method}
             onChange={(e) => setMethod(e.target.value)}
-            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-xl text-sm outline-none focus:border-amber-500"
+            className="w-full mt-1.5 px-4 py-3.5 border border-slate-300 rounded-xl text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
           >
             <option value="orange_money">Orange Money</option>
             <option value="moov_money">Moov Money</option>
             <option value="cash">Espèces / autre</option>
           </select>
         </div>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
         {successMsg && (
-          <p className="text-xs text-emerald-700 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5" /> {successMsg}
+          <p className="text-sm text-emerald-700 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> {successMsg}
           </p>
         )}
         <button
           type="submit"
           disabled={submitting}
-          className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-mono text-xs uppercase font-bold py-2.5 rounded-xl transition-colors"
+          className="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-slate-950 font-mono text-sm uppercase font-bold py-4 rounded-xl transition-colors"
         >
           {submitting ? 'Envoi…' : 'Envoyer la demande'}
         </button>
