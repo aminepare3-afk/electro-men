@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Briefcase,
@@ -7,12 +7,14 @@ import {
   Landmark,
   UserCircle,
   FolderOpen,
-  LogIn,
   ShieldAlert,
   Megaphone,
   MoreHorizontal,
   X,
+  ArrowDownToLine,
 } from 'lucide-react';
+import { getMyTransactions } from '../services/participantService';
+import { LedgerEntry } from '../types';
 import { useInvestorAuth } from '../hooks/useInvestorAuth';
 import { InvestorAuthScreen } from './InvestorAuthScreen';
 import { InvestorOperationsList } from './InvestorOperationsList';
@@ -54,24 +56,20 @@ const MOBILE_MORE_ITEMS = NAV_ITEMS.filter((i) => !MOBILE_PRIMARY_KEYS.includes(
 
 const fmt = (n: number) => `${n.toLocaleString('fr-FR')} FCFA`;
 
-/**
- * Bloc générique "pas encore de compte participant" — réutilisé sur chaque section tant
- * que l'authentification participant (Supabase Auth + table participants/wallets) n'existe pas.
- */
-const NoAccountState: React.FC<{ note?: string }> = ({ note }) => (
-  <div className="text-center py-16 border border-dashed border-slate-300 rounded-xl px-6">
-    <LogIn className="w-6 h-6 text-slate-300 mx-auto mb-3" />
-    <p className="text-sm font-bold text-slate-700 mb-1">Espace participant pas encore actif</p>
-    <p className="text-xs text-slate-500 max-w-sm mx-auto">
-      {note || 'La création de compte participant et le suivi des participations arrivent avec le prochain module (comptes + wallet).'}
-    </p>
-  </div>
-);
-
 export const InvestorPanel: React.FC = () => {
   const auth = useInvestorAuth();
   const [activeTab, setActiveTab] = useState<InvestorTab>('dashboard');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [recentTx, setRecentTx] = useState<LedgerEntry[]>([]);
+  const [txLoading, setTxLoading] = useState(true);
+
+  useEffect(() => {
+    if (!auth.token) return;
+    getMyTransactions(auth.token)
+      .then((tx) => setRecentTx(tx.slice(0, 3)))
+      .catch(() => {})
+      .finally(() => setTxLoading(false));
+  }, [auth.token]);
 
   if (auth.loading && !auth.profile) {
     return <div className="text-center py-16 text-sm text-slate-400">Chargement…</div>;
@@ -176,20 +174,78 @@ export const InvestorPanel: React.FC = () => {
 
       {activeTab === 'dashboard' && (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Solde disponible — l'info la plus importante, mise en avant */}
+          <div className="bg-slate-950 rounded-2xl p-5 text-white">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1">
+              Solde disponible
+            </div>
+            <div className="text-3xl font-bold">{wallet ? fmt(wallet.availableBalanceFcfa) : '—'}</div>
+          </div>
+
+          {/* Actions rapides — grands boutons faciles à toucher au pouce */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => goTo('operations')}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-mono text-xs uppercase font-bold py-3.5 rounded-xl transition-colors flex flex-col items-center gap-1"
+            >
+              <Briefcase className="w-4 h-4" />
+              Voir les opérations
+            </button>
+            <button
+              onClick={() => goTo('withdrawals')}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono text-xs uppercase font-bold py-3.5 rounded-xl transition-colors flex flex-col items-center gap-1"
+            >
+              <ArrowDownToLine className="w-4 h-4" />
+              Demander un retrait
+            </button>
+          </div>
+
+          {/* Résumé secondaire */}
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Capital engagé', value: wallet ? fmt(wallet.engagedAmountFcfa) : '—' },
-              { label: 'Solde disponible', value: wallet ? fmt(wallet.availableBalanceFcfa) : '—' },
-              { label: 'Bénéfices réalisés', value: wallet ? fmt(wallet.totalProfitFcfa) : '—' },
-              { label: 'Pertes', value: wallet ? fmt(wallet.totalLossFcfa) : '—' },
+              { label: 'Engagé', value: wallet ? fmt(wallet.engagedAmountFcfa) : '—' },
+              { label: 'Bénéfices', value: wallet ? fmt(wallet.totalProfitFcfa) : '—', color: 'text-emerald-700' },
+              { label: 'Pertes', value: wallet ? fmt(wallet.totalLossFcfa) : '—', color: 'text-red-700' },
             ].map((k) => (
-              <div key={k.label} className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1">{k.label}</div>
-                <div className="text-xl font-bold text-slate-950">{k.value}</div>
+              <div key={k.label} className="bg-white border border-slate-200 rounded-xl p-3">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1">{k.label}</div>
+                <div className={`text-sm font-bold ${k.color || 'text-slate-950'}`}>{k.value}</div>
               </div>
             ))}
           </div>
-          <NoAccountState note="Une fois connecté, retrouvez ici vos opérations actives, vos dernières transactions et vos notifications." />
+
+          {/* Dernières transactions réelles */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-bold text-slate-900">Dernières transactions</h3>
+              {recentTx.length > 0 && (
+                <button onClick={() => goTo('transactions')} className="text-xs font-mono uppercase font-bold text-amber-600">
+                  Tout voir
+                </button>
+              )}
+            </div>
+            {txLoading ? (
+              <p className="text-sm text-slate-400 py-4 text-center">Chargement…</p>
+            ) : recentTx.length === 0 ? (
+              <div className="text-center py-8 border border-dashed border-slate-300 rounded-xl">
+                <p className="text-sm text-slate-500">Aucune transaction pour le moment.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {recentTx.map((tx) => (
+                  <div key={tx.id} className="bg-white border border-slate-200 rounded-xl p-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800 capitalize">{tx.type}</p>
+                      <p className="text-xs text-slate-400">{new Date(tx.date).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                    <span className={`text-sm font-bold ${tx.amountFcfa >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {tx.amountFcfa >= 0 ? '+' : ''}{tx.amountFcfa.toLocaleString('fr-FR')} FCFA
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
