@@ -54,6 +54,20 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
   }
 }
 
+/**
+ * IMPORTANT : `signInWithPassword` (et toute fonction Auth qui retourne une session)
+ * remplace silencieusement l'Authorization du client par le token de l'utilisateur
+ * connecté — si on appelle ça sur le client `supabase` partagé ci-dessus, TOUTES les
+ * requêtes suivantes qui réutilisent cette même instance serveur (fréquent sur Vercel)
+ * perdent les droits service_role et se retrouvent bloquées par les policies RLS.
+ * On utilise donc toujours un client jetable, séparé, pour ce type d'appel précis.
+ * Voir : https://supabase.com/docs/guides/troubleshooting/why-is-my-service-role-key-client-getting-rls-errors-or-not-returning-data-7_1K9z
+ */
+function createScopedAuthClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+}
+
 const STORAGE_BUCKET = "product-images";
 let bucketEnsured = false;
 
@@ -234,7 +248,8 @@ app.post("/api/admin/accounts/login", async (req: express.Request, res: express.
   if (!requireDb(res)) return;
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ success: false, error: "Email et mot de passe requis." });
-  const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
+  const authClient = createScopedAuthClient();
+  const { data, error } = await authClient!.auth.signInWithPassword({ email, password });
   if (error || !data.session) {
     recordFailedLogin(req, "admin-account-login");
     return res.status(401).json({ success: false, error: "Email ou mot de passe incorrect." });
@@ -973,7 +988,8 @@ app.post("/api/investor/login", async (req: express.Request, res: express.Respon
     return res.status(400).json({ success: false, error: "Email et mot de passe requis." });
   }
   try {
-    const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
+    const authClient = createScopedAuthClient();
+    const { data, error } = await authClient!.auth.signInWithPassword({ email, password });
     if (error || !data.session) {
       recordFailedLogin(req, "investor-login");
       return res.status(401).json({ success: false, error: "Email ou mot de passe incorrect." });
