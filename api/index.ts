@@ -1089,14 +1089,42 @@ app.patch("/api/operations/:id", async (req: express.Request, res: express.Respo
   return res.status(200).json({ success: true });
 });
 
+// Supprime une opération ET tout ce qui s'y rattache (participations, écritures du grand
+// livre, distributions). Destructif et irréversible — vérifie qu'il n'y a pas de participation
+// déjà confirmée (argent réel reçu) avant de supprimer, pour éviter de perdre un historique réel.
 app.delete("/api/operations/:id", async (req: express.Request, res: express.Response) => {
   res.setHeader("Content-Type", "application/json");
   if (!(await requireAdmin(req, res))) return;
   if (!requireDb(res)) return;
-  const { error } = await supabase!.from("operations").delete().eq("id", req.params.id);
-  if (error) return res.status(500).json({ success: false, error: error.message });
-  await logAudit(null, "Admin", "delete", `operations/${req.params.id}`);
-  return res.status(200).json({ success: true });
+  const operationId = req.params.id;
+  try {
+    const { count: activeCount } = await supabase!
+      .from("participations")
+      .select("id", { count: "exact", head: true })
+      .eq("operation_id", operationId)
+      .eq("status", "active");
+    if (activeCount && activeCount > 0 && req.query.force !== "true") {
+      return res.status(400).json({
+        success: false,
+        error: `${activeCount} participation(s) confirmée(s) (argent réel) sont liées à cette opération. Supprimer quand même effacera cet historique — recommence avec confirmation explicite si tu es sûr.`,
+        needsForce: true,
+      });
+    }
+    const { data: distributions } = await supabase!.from("distributions").select("id").eq("operation_id", operationId);
+    for (const d of distributions || []) {
+      await supabase!.from("distribution_lines").delete().eq("distribution_id", d.id);
+    }
+    await supabase!.from("distributions").delete().eq("operation_id", operationId);
+    await supabase!.from("ledger_entries").delete().eq("operation_id", operationId);
+    await supabase!.from("participations").delete().eq("operation_id", operationId);
+    // import_orders garde une référence nullable (ON DELETE SET NULL) — pas besoin d'y toucher.
+    const { error } = await supabase!.from("operations").delete().eq("id", operationId);
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    await logAudit((req as any).adminUserId || null, "Admin", "delete", `operations/${operationId}`);
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e?.message || "Erreur lors de la suppression." });
+  }
 });
 
 // ---- Commandes d'importation ----
@@ -1244,6 +1272,29 @@ app.get("/api/admin/participants", async (req: express.Request, res: express.Res
   const { data, error } = await supabase!.from("participant_profiles").select("*").order("created_at", { ascending: false });
   if (error) return res.status(500).json({ success: false, error: error.message, data: [] });
   return res.status(200).json({ success: true, data });
+});
+
+// Supprime définitivement un compte investisseur ET tout ce qui s'y rattache (participations,
+// écritures du grand livre, retraits, documents). Destructif et irréversible — pensé pour
+// nettoyer des comptes de test, pas pour un vrai investisseur avec de l'argent réel engagé.
+app.delete("/api/admin/participants/:id", async (req: express.Request, res: express.Response) => {
+  res.setHeader("Content-Type", "application/json");
+  if (!(await requireAdmin(req, res))) return;
+  if (!requireDb(res)) return;
+  const participantId = req.params.id;
+  try {
+    await supabase!.from("documents").delete().eq("participant_id", participantId);
+    await supabase!.from("distribution_lines").delete().eq("participant_id", participantId);
+    await supabase!.from("withdrawals").delete().eq("participant_id", participantId);
+    await supabase!.from("ledger_entries").delete().eq("participant_id", participantId);
+    await supabase!.from("participations").delete().eq("participant_id", participantId);
+    await supabase!.from("participant_profiles").delete().eq("id", participantId);
+    await supabase!.auth.admin.deleteUser(participantId);
+    await logAudit((req as any).adminUserId || null, "Admin", "delete", `participant_profiles/${participantId}`);
+    return res.status(200).json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e?.message || "Erreur lors de la suppression." });
+  }
 });
 
 app.get("/api/admin/participations", async (req: express.Request, res: express.Response) => {

@@ -139,8 +139,19 @@ export const OperationsPanel: React.FC<OperationsPanelProps> = ({ adminPassword 
 
   const handleDelete = async (op: Operation) => {
     if (!window.confirm(`Supprimer l'opération "${op.title}" (${op.reference}) ? Cette action est irréversible.`)) return;
-    await deleteOperation(adminPassword, op.id);
-    await load();
+    try {
+      await deleteOperation(adminPassword, op.id);
+      await load();
+    } catch (e: any) {
+      if (e.needsForce) {
+        if (window.confirm(`${e.message}\n\nConfirmer la suppression définitive quand même ?`)) {
+          await deleteOperation(adminPassword, op.id, true);
+          await load();
+        }
+      } else {
+        alert(e.message);
+      }
+    }
   };
 
   const handleStatusChange = async (op: Operation, status: OperationStatus) => {

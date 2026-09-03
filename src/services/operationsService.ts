@@ -71,11 +71,15 @@ export async function updateOperationStatus(adminPassword: string, id: string, s
   if (!json.success) throw new Error(json.error || 'Erreur de mise à jour du statut.');
 }
 
-export async function deleteOperation(adminPassword: string, id: string): Promise<void> {
-  const res = await fetch(`/api/operations/${id}`, {
+export async function deleteOperation(adminPassword: string, id: string, force = false): Promise<void> {
+  const res = await fetch(`/api/operations/${id}${force ? '?force=true' : ''}`, {
     method: 'DELETE',
     headers: { 'x-admin-password': adminPassword },
   });
   const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Erreur de suppression.');
+  if (!json.success) {
+    const err: any = new Error(json.error || 'Erreur de suppression.');
+    err.needsForce = json.needsForce;
+    throw err;
+  }
 }

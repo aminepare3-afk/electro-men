@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { UserCog, CheckCircle2, XCircle } from 'lucide-react';
-import { getAdminParticipants, getAdminParticipations, reviewParticipation } from '../services/adminParticipantsService';
+import { UserCog, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { getAdminParticipants, getAdminParticipations, reviewParticipation, deleteParticipant } from '../services/adminParticipantsService';
 import { Participation } from '../types';
 
 interface UsersPanelProps {
@@ -50,6 +50,19 @@ export const UsersPanel: React.FC<UsersPanelProps> = ({ adminPassword }) => {
     setProcessingId(id);
     try {
       await reviewParticipation(adminPassword, id, decision);
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDeleteParticipant = async (id: string, name: string) => {
+    if (!window.confirm(`Supprimer DÉFINITIVEMENT le compte de "${name}" et TOUTES ses données (participations, transactions, retraits, documents) ? Réservé aux comptes de test. Action irréversible.`)) return;
+    setProcessingId(id);
+    try {
+      await deleteParticipant(adminPassword, id);
       await load();
     } catch (e: any) {
       setError(e.message);
@@ -137,6 +150,7 @@ export const UsersPanel: React.FC<UsersPanelProps> = ({ adminPassword }) => {
                   <th className="text-left px-4 py-2 font-mono text-[11px] uppercase text-slate-500">Téléphone</th>
                   <th className="text-left px-4 py-2 font-mono text-[11px] uppercase text-slate-500">Statut</th>
                   <th className="text-left px-4 py-2 font-mono text-[11px] uppercase text-slate-500">Inscrit le</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -146,6 +160,16 @@ export const UsersPanel: React.FC<UsersPanelProps> = ({ adminPassword }) => {
                     <td className="px-4 py-2.5 text-slate-500">{p.phone || '—'}</td>
                     <td className="px-4 py-2.5 text-slate-500">{p.status}</td>
                     <td className="px-4 py-2.5 text-slate-500">{new Date(p.created_at).toLocaleDateString('fr-FR')}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        onClick={() => handleDeleteParticipant(p.id, p.full_name)}
+                        disabled={processingId === p.id}
+                        className="text-slate-300 hover:text-red-600 disabled:opacity-50 transition-colors"
+                        title="Supprimer ce compte (test uniquement)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

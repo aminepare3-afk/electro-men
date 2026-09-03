@@ -42,3 +42,12 @@ export async function reviewParticipation(adminPassword: string, id: string, dec
   const json = await res.json();
   if (!json.success) throw new Error(json.error || 'Erreur lors du traitement.');
 }
+
+export async function deleteParticipant(adminPassword: string, id: string): Promise<void> {
+  const res = await fetch(`/api/admin/participants/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-password': adminPassword },
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'Erreur de suppression.');
+}
